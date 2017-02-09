@@ -1,0 +1,11 @@
+package: github.com/edganiukov/drone-helm
+
+import:
+- package: github.com/kelseyhightower/envconfig
+  version: v1.3.0
+- package: github.com/joho/godotenv
+  version: v1
+- package: github.com/sirupsen/logrus
+  version: v0.11.0
+- package: gopkg.in/yaml.v2
+  version: v2
