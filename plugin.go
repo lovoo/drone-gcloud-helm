@@ -14,11 +14,12 @@ import (
 // Plugin defines the Helm plugin parameters.
 type Plugin struct {
 	Debug        bool     `envconfig:"DEBUG"`
-	Actions      []string `envconfig:"ACTION" required:"true"`
+	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
 	Zone         string   `envconfig:"ZONE"`
 	Cluster      string   `envconfig:"CLUSTER"`
 	Project      string   `envconfig:"PROJECT"`
+	Bucket       string   `envconfig:"BUCKET"`
 	ChartPath    string   `envconfig:"CHART_PATH"`
 	ChartVersion string   `envconfig:"CHART_VERSION"`
 	Values       []string `envconfig:"VALUES"`
@@ -26,10 +27,12 @@ type Plugin struct {
 
 const (
 	gcloudBin  = "/opt/google-cloud-sdk/bin/gcloud"
+	gsutilBin  = "/opt/google-cloud-sdk/bin/gsutil"
 	kubectlBin = "/opt/google-cloud-sdk/bin/kubectl"
 	helmBin    = "/opt/google-cloud-sdk/bin/helm"
 
 	createPkg = "create"
+	pushPkg   = "push"
 	deployPkg = "deploy"
 )
 
@@ -39,6 +42,10 @@ func (p Plugin) Exec() error {
 		switch a {
 		case createPkg:
 			if err := p.createPackage(); err != nil {
+				return err
+			}
+		case pushPkg:
+			if err := p.pushPackage(); err != nil {
 				return err
 			}
 		case deployPkg:
@@ -67,13 +74,34 @@ func (p Plugin) createPackage() error {
 		cmd.Stderr = os.Stderr
 	}
 	if err := cmd.Run(); err != nil {
-		return nil
+		return err
+	}
+	return nil
+}
+
+func (p Plugin) pushPackage() error {
+	s := strings.Split(p.ChartPath, "/")
+	chartPackage := s[len(s)-1]
+	cmd := exec.Command(gsutilBin, "cp",
+		fmt.Sprintf("%s-%s.tgz", chartPackage, p.ChartVersion),
+		fmt.Sprintf("gs://%s", p.Bucket),
+	)
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		return err
 	}
 	return nil
 }
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
+	if err := p.helmInit(); err != nil {
+		return err
+	}
 	if err := p.setupProject(); err != nil {
 		return err
 	}
@@ -91,7 +119,7 @@ func (p Plugin) deployPackage() error {
 		cmd.Stderr = os.Stderr
 	}
 	if err := cmd.Run(); err != nil {
-		return nil
+		return err
 	}
 	return nil
 }
@@ -151,8 +179,21 @@ func (p Plugin) setupProject() error {
 	return nil
 }
 
+func (p Plugin) helmInit() error {
+	cmd := exec.Command(helmBin, "init")
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // trace writes each command to stdout with the command wrapped in an xml
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
-	logrus.WithField("args", cmd.Args).Debug("debug")
+	logrus.WithField("cmd", cmd.Args).Debug("debug")
 }
