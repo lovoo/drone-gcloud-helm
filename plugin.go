@@ -20,8 +20,9 @@ type Plugin struct {
 	Cluster      string   `envconfig:"CLUSTER"`
 	Project      string   `envconfig:"PROJECT"`
 	Bucket       string   `envconfig:"BUCKET"`
-	ChartPath    string   `envconfig:"CHART_PATH"`
+	ChartPath    string   `envconfig:"CHART_PATH" required:"true"`
 	ChartVersion string   `envconfig:"CHART_VERSION"`
+	Package      string   `envconfig:"PACKAGE"`
 	Values       []string `envconfig:"VALUES"`
 }
 
@@ -38,6 +39,12 @@ const (
 
 // Exec executes the plugin step.
 func (p Plugin) Exec() error {
+	if err := p.setupProject(); err != nil {
+		return err
+	}
+	if err := p.helmInit(); err != nil {
+		return err
+	}
 	for _, a := range p.Actions {
 		switch a {
 		case createPkg:
@@ -79,11 +86,11 @@ func (p Plugin) createPackage() error {
 	return nil
 }
 
+// pushPackage pushes Helm package to the Google Storage.
+// gsutil cp $PACKAGE-$PLUGIN_CHART_VERSION.tgz gs://$PLUGIN_BUCKET
 func (p Plugin) pushPackage() error {
-	s := strings.Split(p.ChartPath, "/")
-	chartPackage := s[len(s)-1]
 	cmd := exec.Command(gsutilBin, "cp",
-		fmt.Sprintf("%s-%s.tgz", chartPackage, p.ChartVersion),
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
 		fmt.Sprintf("gs://%s", p.Bucket),
 	)
 	if p.Debug {
@@ -99,17 +106,12 @@ func (p Plugin) pushPackage() error {
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
-	if err := p.helmInit(); err != nil {
+	if err := p.kubeConfig(); err != nil {
 		return err
 	}
-	if err := p.setupProject(); err != nil {
-		return err
-	}
-	s := strings.Split(p.ChartPath, "/")
-	chartPackage := s[len(s)-1]
 	cmd := exec.Command(helmBin, "upgrade",
-		chartPackage,
-		fmt.Sprintf("%s-%s.tgz", chartPackage, p.ChartVersion),
+		p.Package,
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
 		"--set", strings.Join(p.Values, ","),
 		"--install",
 	)
@@ -157,7 +159,7 @@ func (p Plugin) setupProject() error {
 	))
 	// cluster configuration
 	cmds = append(cmds, exec.Command(gcloudBin, "container",
-		"cluster",
+		"clusters",
 		"get-credentials",
 		p.Cluster,
 		"--zone",
@@ -179,8 +181,23 @@ func (p Plugin) setupProject() error {
 	return nil
 }
 
+// helmInit inits Triller on Kubernetes cluster.
+// helm init
 func (p Plugin) helmInit() error {
-	cmd := exec.Command(helmBin, "init")
+	cmd := exec.Command(helmBin, "init", "--client-only")
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p Plugin) kubeConfig() error {
+	cmd := exec.Command(kubectlBin, "config", "view")
 	if p.Debug {
 		trace(cmd)
 		cmd.Stdout = os.Stdout

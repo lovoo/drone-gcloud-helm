@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -36,6 +37,11 @@ func preparePlugin(p *Plugin) error {
 	// To fix this issue, needs to yaml.Unmarshal this string simple string.
 	if err := yaml.Unmarshal([]byte(p.AuthKey), &p.AuthKey); err != nil {
 		return err
+	}
+
+	if p.Package == "" {
+		s := strings.Split(p.ChartPath, "/")
+		p.Package = s[len(s)-1]
 	}
 
 	return nil
