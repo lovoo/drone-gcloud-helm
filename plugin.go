@@ -106,8 +106,10 @@ func (p Plugin) pushPackage() error {
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
-	if err := p.kubeConfig(); err != nil {
-		return err
+	if p.Debug {
+		if err := p.kubeConfig(); err != nil {
+			return err
+		}
 	}
 	cmd := exec.Command(helmBin, "upgrade",
 		p.Package,
@@ -135,7 +137,6 @@ func (p Plugin) setupProject() error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpfile.Name())
 
 	if _, err := tmpfile.Write([]byte(p.AuthKey)); err != nil {
 		return err
@@ -177,6 +178,9 @@ func (p Plugin) setupProject() error {
 			return err
 		}
 	}
+	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpfile.Name()); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -198,11 +202,9 @@ func (p Plugin) helmInit() error {
 
 func (p Plugin) kubeConfig() error {
 	cmd := exec.Command(kubectlBin, "config", "view")
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
+	trace(cmd)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return err
 	}
