@@ -19,29 +19,30 @@ The following parameters are used to configure this plugin:
 Sample configuration:
 
 ```
+deploy:
   image: foobar/drone-gcloud-helm
-    debug: true
-    actions:
-      - create
-      - push
-      - deploy
-    chart_path: chart/foo
-    chart_version: ${DRONE_BUILD_NUMBER}
-    project: foo-project
-    cluster: foo-cluster-1
-    zone: europe-west1-b
-    bucket: foo-charts
-    auth_key: >
-      {
-        "private_key_id": "...",
-        "private_key": "...",
-        "client_email": "...",
-        "client_id": "...",
-        "type": "..."
-      }
-    values:
-      - "docker.tag=${DRONE_BUILD_NUMBER}"
-    when:
-      branch: master
-      event: push
+  debug: true
+  actions:
+    - create
+    - push
+    - deploy
+  chart_path: chart/foo
+  chart_version: ${DRONE_BUILD_NUMBER}
+  project: foo-project
+  cluster: foo-cluster-1
+  zone: europe-west1-b
+  bucket: foo-charts
+  auth_key: >
+    {
+      "private_key_id": "...",
+      "private_key": "...",
+      "client_email": "...",
+      "client_id": "...",
+      "type": "..."
+    }
+  values:
+    - "docker.tag=${DRONE_BUILD_NUMBER}"
+  when:
+    branch: master
+    event: push
 ```
