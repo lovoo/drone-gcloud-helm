@@ -5,7 +5,7 @@ Drone 0.5 plugin to use create and deploy Helm charts for Kubernetes and push He
 The following parameters are used to configure this plugin:
 
 * `debug` - enable debug mode.
-* `actions` - list of actions over chart - `create`, `push`, `deploy`. Required.
+* `actions` - list of actions over chart - `create`, `push`, `deploy`. Required and order is important.
 * `auth_key` - json authentication key for service account.
 * `zone` - zone of the Kubernetes cluster.
 * `cluster` - the Kubernetes cluster name.
