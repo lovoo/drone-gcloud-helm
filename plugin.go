@@ -19,6 +19,8 @@ type Plugin struct {
 	Zone         string   `envconfig:"ZONE"`
 	Cluster      string   `envconfig:"CLUSTER"`
 	Project      string   `envconfig:"PROJECT"`
+	Namespace    string   `envconfig:"NAMESPACE"`
+	ChartRepo    string   `envconfig:"CHART_REPO"`
 	Bucket       string   `envconfig:"BUCKET"`
 	ChartPath    string   `envconfig:"CHART_PATH" required:"true"`
 	ChartVersion string   `envconfig:"CHART_VERSION"`
@@ -80,10 +82,7 @@ func (p Plugin) createPackage() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
+	return cmd.Run()
 }
 
 // pushPackage pushes Helm package to the Google Storage.
@@ -101,6 +100,12 @@ func (p Plugin) pushPackage() error {
 	if err := cmd.Run(); err != nil {
 		return err
 	}
+
+	if p.ChartRepo != "" {
+		if err := p.indexRepo(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -116,16 +121,14 @@ func (p Plugin) deployPackage() error {
 		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
 		"--set", strings.Join(p.Values, ","),
 		"--install",
+		"--namespace", p.Namespace,
 	)
 	if p.Debug {
 		trace(cmd)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
+	return cmd.Run()
 }
 
 // setupProject setups gcloud project.
@@ -178,11 +181,8 @@ func (p Plugin) setupProject() error {
 			return err
 		}
 	}
-	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpfile.Name()); err != nil {
-		return err
-	}
 
-	return nil
+	return os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpfile.Name())
 }
 
 // helmInit inits Triller on Kubernetes cluster.
@@ -197,7 +197,51 @@ func (p Plugin) helmInit() error {
 	if err := cmd.Run(); err != nil {
 		return err
 	}
+
+	if p.ChartRepo != "" {
+		if err := p.addRepo(); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (p Plugin) addRepo() error {
+	cmd := exec.Command(helmBin,
+		"repo", "add",
+		p.Bucket, p.ChartRepo,
+	)
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
+}
+
+func (p Plugin) updateRepo() error {
+	cmd := exec.Command(helmBin,
+		"repo", "update",
+	)
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
+}
+
+func (p Plugin) indexRepo() error {
+	cmd := exec.Command(helmBin,
+		"repo", "index", "--merge",
+		"--url", p.ChartRepo,
+	)
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }
 
 func (p Plugin) kubeConfig() error {
@@ -205,10 +249,8 @@ func (p Plugin) kubeConfig() error {
 	trace(cmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
+
+	return cmd.Run()
 }
 
 // trace writes each command to stdout with the command wrapped in an xml

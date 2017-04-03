@@ -10,7 +10,9 @@ The following parameters are used to configure this plugin:
 * `zone` - zone of the Kubernetes cluster.
 * `cluster` - the Kubernetes cluster name.
 * `project` - the Google project identifier.
+* `namespace` - the Kubernetes namespace to install in.
 * `bucket` - the Google Storage Bucket name to push Helm package into it.
+* `chart_repo` - the Helm charts repository (defaul ig `https://$(BUCKET).storage.googleapis.com/`)
 * `chart_path` - the path to the Helm chart (e.g. chart/foo).
 * `chart_version` - the version of the chart.
 * `package` - the package name. Default is chart name.

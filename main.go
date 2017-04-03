@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -42,6 +43,12 @@ func preparePlugin(p *Plugin) error {
 	if p.Package == "" {
 		s := strings.Split(p.ChartPath, "/")
 		p.Package = s[len(s)-1]
+	}
+	if p.ChartRepo == "" && p.Bucket != "" {
+		p.ChartRepo = fmt.Sprintf("https://%s.storage.googleapis.com/", p.Bucket)
+	}
+	if p.Namespace == "" {
+		p.Namespace = "default"
 	}
 
 	return nil
