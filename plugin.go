@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -57,6 +58,12 @@ func (p Plugin) Exec() error {
 			if err := p.pushPackage(); err != nil {
 				return err
 			}
+			if err := p.movePkg(); err != nil {
+				return err
+			}
+			if err := p.indexRepo(); err != nil {
+				return err
+			}
 		case deployPkg:
 			if err := p.deployPackage(); err != nil {
 				return err
@@ -99,12 +106,6 @@ func (p Plugin) pushPackage() error {
 	}
 	if err := cmd.Run(); err != nil {
 		return err
-	}
-
-	if p.ChartRepo != "" {
-		if err := p.indexRepo(); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -198,11 +199,6 @@ func (p Plugin) helmInit() error {
 		return err
 	}
 
-	if p.ChartRepo != "" {
-		if err := p.addRepo(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -232,8 +228,8 @@ func (p Plugin) updateRepo() error {
 }
 
 func (p Plugin) indexRepo() error {
-	cmd := exec.Command(helmBin,
-		"repo", "index", "--merge",
+	cmd := exec.Command(helmBin, "repo",
+		"index", p.Bucket,
 		"--url", p.ChartRepo,
 	)
 	if p.Debug {
@@ -242,6 +238,19 @@ func (p Plugin) indexRepo() error {
 		cmd.Stderr = os.Stderr
 	}
 	return cmd.Run()
+}
+
+func (p Plugin) movePkg() error {
+	if err := os.Mkdir(p.Bucket, os.ModeDir); err != nil {
+		return err
+	}
+	if err := cp(
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
+		fmt.Sprintf("%s/%s-%s.tgz", p.Bucket, p.Package, p.ChartVersion),
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p Plugin) kubeConfig() error {
@@ -257,4 +266,24 @@ func (p Plugin) kubeConfig() error {
 // tag so that it can be extracted and displayed in the logs.
 func trace(cmd *exec.Cmd) {
 	logrus.WithField("cmd", cmd.Args).Debug("debug")
+}
+
+// cp copies file
+func cp(src, dst string) error {
+	s, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	// no need to check errors on read only file, we already got everything
+	// we need from the filesystem, so nothing can go wrong now.
+	defer s.Close()
+	d, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(d, s); err != nil {
+		d.Close()
+		return err
+	}
+	return d.Close()
 }
