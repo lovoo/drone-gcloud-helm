@@ -39,6 +39,9 @@ func preparePlugin(p *Plugin) error {
 	if err := yaml.Unmarshal([]byte(p.AuthKey), &p.AuthKey); err != nil {
 		return err
 	}
+	if p.Env != "canary" && p.Env != "prod" {
+		return fmt.Errorf("invalid deployment environment: %s; possible values: [canary, prod]", p.Env)
+	}
 
 	if p.Package == "" {
 		s := strings.Split(p.ChartPath, "/")
