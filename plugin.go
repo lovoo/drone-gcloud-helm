@@ -59,12 +59,6 @@ func (p Plugin) Exec() error {
 			if err := p.pushPackage(); err != nil {
 				return err
 			}
-			if err := p.movePkg(); err != nil {
-				return err
-			}
-			if err := p.indexRepo(); err != nil {
-				return err
-			}
 		case deployPkg:
 			if err := p.deployPackage(); err != nil {
 				return err
