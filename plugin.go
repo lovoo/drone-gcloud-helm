@@ -26,7 +26,6 @@ type Plugin struct {
 	ChartPath    string   `envconfig:"CHART_PATH" required:"true"`
 	ChartVersion string   `envconfig:"CHART_VERSION"`
 	Package      string   `envconfig:"PACKAGE"`
-	Env          string   `envconfig:"ENV" required:"true"`
 	Values       []string `envconfig:"VALUES"`
 }
 
@@ -113,7 +112,7 @@ func (p Plugin) deployPackage() error {
 		}
 	}
 
-	p.Values = append(p.Values, fmt.Sprintf("env=%s", p.Env))
+	p.Values = append(p.Values, fmt.Sprintf("namespace=%s", p.Namespace))
 	cmd := exec.Command(helmBin, "upgrade",
 		p.Package,
 		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
