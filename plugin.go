@@ -25,6 +25,7 @@ type Plugin struct {
 	Bucket       string   `envconfig:"BUCKET"`
 	ChartPath    string   `envconfig:"CHART_PATH" required:"true"`
 	ChartVersion string   `envconfig:"CHART_VERSION"`
+	Release      string   `envconfig:"RELEASE"`
 	Package      string   `envconfig:"PACKAGE"`
 	Values       []string `envconfig:"VALUES"`
 }
@@ -114,7 +115,7 @@ func (p Plugin) deployPackage() error {
 
 	p.Values = append(p.Values, fmt.Sprintf("namespace=%s", p.Namespace))
 	cmd := exec.Command(helmBin, "upgrade",
-		p.Package,
+		p.Release,
 		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
 		"--set", strings.Join(p.Values, ","),
 		"--install",

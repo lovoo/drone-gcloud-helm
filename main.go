@@ -43,6 +43,9 @@ func preparePlugin(p *Plugin) error {
 		s := strings.Split(p.ChartPath, "/")
 		p.Package = s[len(s)-1]
 	}
+	if p.Release == "" {
+		p.Release = p.Package
+	}
 	if p.ChartRepo == "" && p.Bucket != "" {
 		p.ChartRepo = fmt.Sprintf("https://%s.storage.googleapis.com/", p.Bucket)
 	}
