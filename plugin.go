@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -40,6 +42,8 @@ const (
 	pushPkg   = "push"
 	deployPkg = "deploy"
 )
+
+var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.SemVer:"(?P<semver>.*?)".*?GitCommit:"(?P<commit>.*?)".*?GitTreeState:"(?P<treestate>.*?)"`)
 
 // Exec executes the plugin step.
 func (p Plugin) Exec() error {
@@ -183,10 +187,81 @@ func (p Plugin) setupProject() error {
 	return os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpfile.Name())
 }
 
+// fetchHelmVersions returns helm and tiller versions as map
+// helm version
+func (p Plugin) fetchHelmVersions() (map[string]map[string]string, error) {
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd := exec.Command(helmBin, "version")
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	if err != nil {
+		return nil, errors.New(stderr.String())
+	}
+
+	lines := strings.Split(out.String(), "\n")
+	versions := make(map[string]map[string]string)
+
+	// we just care about the first two lines
+	for _, line := range lines[:2] {
+		entry, reErr := scanNamed(line, reVersions)
+
+		if reErr != nil {
+			return nil, reErr
+		}
+		versions[strings.ToLower(entry["realm"])] = entry
+	}
+
+	return versions, nil
+}
+
+// pollTiller repeaditly calls helm version and checks its exit code
+// helm version
+func (p Plugin) pollTiller(retryCount int) error {
+	var pollErr error
+	for ; retryCount >= 0; retryCount-- {
+		pollCmd := exec.Command(helmBin, "version")
+		if p.Debug {
+			trace(pollCmd)
+			pollCmd.Stdout = os.Stdout
+			pollCmd.Stderr = os.Stderr
+		}
+		pollErr = pollCmd.Run()
+		if pollErr == nil {
+			break
+		}
+	}
+
+	return pollErr
+}
+
 // helmInit inits Triller on Kubernetes cluster.
 // helm init
 func (p Plugin) helmInit() error {
-	cmd := exec.Command(helmBin, "init", "--client-only")
+	ver, err := p.fetchHelmVersions()
+	if err != nil {
+		return err
+	}
+	var cmd *exec.Cmd
+
+	switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
+	case -1: // client is older than tiller
+		return errors.New("helm client is out of date")
+	case 1: // client is newer than tiller
+		{
+			cmd = exec.Command(helmBin, "init", "--upgrade")
+			break
+		}
+	case 0: // client and tiller are at the same version
+		{
+			cmd = exec.Command(helmBin, "init", "--client-only")
+			break
+		}
+	}
+
 	if p.Debug {
 		trace(cmd)
 		cmd.Stdout = os.Stdout
@@ -195,6 +270,9 @@ func (p Plugin) helmInit() error {
 	if err := cmd.Run(); err != nil {
 		return err
 	}
+
+	// poll for tiller (call helm version 10 times)
+	p.pollTiller(10)
 
 	return nil
 }
@@ -283,4 +361,23 @@ func cp(src, dst string) error {
 		return err
 	}
 	return d.Close()
+}
+
+// scanNamed maps named regex groups to a golang map
+func scanNamed(str string, rg *regexp.Regexp) (map[string]string, error) {
+	result := make(map[string]string)
+	for _, match := range rg.FindAllStringSubmatch(str, -1) {
+		for i, name := range rg.SubexpNames() {
+			if i != 0 && match[i] != "" && name != "" {
+				result[name] = match[i]
+			}
+		}
+	}
+
+	if len(result) == 0 {
+		fmt.Println(result)
+		return nil, errors.New("emtpy resultset")
+	}
+
+	return result, nil
 }
