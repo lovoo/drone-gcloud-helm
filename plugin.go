@@ -196,9 +196,7 @@ func (p Plugin) fetchHelmVersions() (map[string]map[string]string, error) {
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
-
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return nil, errors.New(stderr.String())
 	}
 
@@ -208,7 +206,6 @@ func (p Plugin) fetchHelmVersions() (map[string]map[string]string, error) {
 	// we just care about the first two lines
 	for _, line := range lines[:2] {
 		entry, reErr := scanNamed(line, reVersions)
-
 		if reErr != nil {
 			return nil, reErr
 		}
@@ -251,15 +248,11 @@ func (p Plugin) helmInit() error {
 	case -1: // client is older than tiller
 		return errors.New("helm client is out of date")
 	case 1: // client is newer than tiller
-		{
-			cmd = exec.Command(helmBin, "init", "--upgrade")
-			break
-		}
-	case 0: // client and tiller are at the same version
-		{
-			cmd = exec.Command(helmBin, "init", "--client-only")
-			break
-		}
+		cmd = exec.Command(helmBin, "init", "--upgrade")
+		break
+	default: // client and tiller are at the same version
+		cmd = exec.Command(helmBin, "init", "--client-only")
+		break
 	}
 
 	if p.Debug {
@@ -267,12 +260,15 @@ func (p Plugin) helmInit() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
+
 	if err := cmd.Run(); err != nil {
 		return err
 	}
 
 	// poll for tiller (call helm version 10 times)
-	p.pollTiller(10)
+	if err := p.pollTiller(10); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -375,7 +371,6 @@ func scanNamed(str string, rg *regexp.Regexp) (map[string]string, error) {
 	}
 
 	if len(result) == 0 {
-		fmt.Println(result)
 		return nil, errors.New("emtpy resultset")
 	}
 
