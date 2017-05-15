@@ -218,7 +218,7 @@ func (p Plugin) fetchHelmVersions() (map[string]map[string]string, error) {
 	return versions, nil
 }
 
-// pollTiller repeaditly calls helm version and checks its exit code
+// pollTiller repeatedly calls helm version and checks its exit code
 // helm version
 func (p Plugin) pollTiller(retryCount int) error {
 	var pollErr error
