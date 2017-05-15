@@ -16,6 +16,7 @@ The following parameters are used to configure this plugin:
 * `chart_path` - the path to the Helm chart (e.g. chart/foo).
 * `chart_version` - the version of the chart.
 * `package` - the package name. Default is chart name.
+* `release` - the release name used for helm upgrade. Defaults to package name.
 * `values` - list of chart values. Would be set via `--set` Helm flag.
 
 Sample configuration:
