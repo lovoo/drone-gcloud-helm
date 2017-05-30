@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"strings"
-
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/sirupsen/logrus"
-	yaml "gopkg.in/yaml.v2"
+	//	yaml "gopkg.in/yaml.v2"
+	"os"
+	"strings"
 )
 
 func main() {
@@ -34,11 +33,6 @@ func main() {
 }
 
 func preparePlugin(p *Plugin) error {
-	// the problem is, that p.AuthKey so far is "yaml" escaped string.
-	// To fix this issue, needs to yaml.Unmarshal this string simple string.
-	if err := yaml.Unmarshal([]byte(p.AuthKey), &p.AuthKey); err != nil {
-		return err
-	}
 	if p.Package == "" {
 		s := strings.Split(p.ChartPath, "/")
 		p.Package = s[len(s)-1]
