@@ -1,12 +1,11 @@
 # drone-gcloud-helm
 
-Drone 0.5 plugin to use create and deploy Helm charts for Kubernetes and push Helm package to Google Storage. You will need to generate a [JSON token](https://developers.google.com/console/help/new/#serviceaccounts) to authenticate to the Kuebernetes cluster and to push Helm package to the Google Storage.
+Drone 0.6 plugin to use create and deploy Helm charts for Kubernetes and push Helm package to Google Storage. You will need to generate a [JSON token](https://developers.google.com/console/help/new/#serviceaccounts) to authenticate to the Kuebernetes cluster and to push Helm package to the Google Storage.
 
 The following parameters are used to configure this plugin:
 
 * `debug` - enable debug mode.
 * `actions` - list of actions over chart - `create`, `push`, `deploy`. Required and order is important.
-* `auth_key` - json authentication key for service account.
 * `zone` - zone of the Kubernetes cluster.
 * `cluster` - the Kubernetes cluster name.
 * `project` - the Google project identifier.
@@ -18,6 +17,23 @@ The following parameters are used to configure this plugin:
 * `package` - the package name. Default is chart name.
 * `release` - the release name used for helm upgrade. Defaults to package name.
 * `values` - list of chart values. Would be set via `--set` Helm flag.
+
+Auth Key Management:
+
+Add a new secret, containing your JSON token to your project
+
+```
+drone secret add --image=gcr.io/lovoo-ci/drone-gcloud-helm:1.1.0 --name=AWESOME_GCLOUD_TOKEN --value=@/path/to/your/token.json octocat/helloworld
+```
+
+configure the drone-gcloud-helm plugin in your .drone.yaml to use your secret and alias it to plugin_auth_key
+
+```
+  secrets:
+    - source: AWESOME_GCLOUD_TOKEN
+      target: plugin_auth_key
+```
+
 
 Sample configuration:
 
@@ -35,14 +51,9 @@ deploy:
   cluster: foo-cluster-1
   zone: europe-west1-b
   bucket: foo-charts
-  auth_key: >
-    {
-      "private_key_id": "...",
-      "private_key": "...",
-      "client_email": "...",
-      "client_id": "...",
-      "type": "..."
-    }
+  secrets:
+    - source: AWESOME_GCLOUD_TOKEN
+      target: plugin_auth_key
   values:
     - "docker.tag=${DRONE_BUILD_NUMBER}"
   when:
