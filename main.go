@@ -21,6 +21,9 @@ func main() {
 		logrus.WithError(err).Fatal("failed to parse parameters")
 	}
 	if p.Debug {
+		for _, e := range os.Environ() {
+			fmt.Println(e)
+		}
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 	if err := preparePlugin(&p); err != nil {

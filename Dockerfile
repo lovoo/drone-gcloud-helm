@@ -2,7 +2,7 @@ FROM alpine:3.5
 
 ENV GCLOUD_VERSION=142.0.0
 ENV KUBECTL_VERSION=v1.5.2
-ENV HELM_VERSION=v2.3.1
+ENV HELM_VERSION=v2.4.1
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
 
@@ -25,7 +25,7 @@ RUN mkdir -p /tmp/gcloud && \
 
 	cd && rm -rf /tmp/gcloud
 
-COPY drone-gcloud-helm /opt/google-cloud-sdk/bin/
+COPY build/drone-gcloud-helm /opt/google-cloud-sdk/bin/
 
 RUN chmod a+x /opt/google-cloud-sdk/bin/drone-gcloud-helm
 

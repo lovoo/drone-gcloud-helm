@@ -118,14 +118,21 @@ func (p Plugin) deployPackage() error {
 	}
 
 	p.Values = append(p.Values, fmt.Sprintf("namespace=%s", p.Namespace))
-	cmd := exec.Command(helmBin, "upgrade",
+
+	helmcmd := fmt.Sprintf("\"%s upgrade %s %s-%s.tgz --set %s --install --namespace %s\"",
+		helmBin,
 		p.Release,
-		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
-		"--set", strings.Join(p.Values, ","),
-		"--install",
-		"--namespace", p.Namespace,
-	)
+		p.Package,
+		p.ChartVersion,
+		strings.Join(p.Values, ","),
+		p.Namespace)
+
+	cmd := exec.Command("/bin/sh", "-c", helmcmd)
+	cmd.Env = os.Environ()
 	if p.Debug {
+		for _, e := range cmd.Env {
+			fmt.Println(e)
+		}
 		trace(cmd)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
