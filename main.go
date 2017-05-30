@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/sirupsen/logrus"
-	//	yaml "gopkg.in/yaml.v2"
-	"os"
-	"strings"
 )
 
 func main() {
