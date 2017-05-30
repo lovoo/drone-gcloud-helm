@@ -119,7 +119,7 @@ func (p Plugin) deployPackage() error {
 
 	p.Values = append(p.Values, fmt.Sprintf("namespace=%s", p.Namespace))
 
-	helmcmd := fmt.Sprintf("\"%s upgrade %s %s-%s.tgz --set %s --install --namespace %s\"",
+	helmcmd := fmt.Sprintf("%s upgrade %s %s-%s.tgz --set %s --install --namespace %s",
 		helmBin,
 		p.Release,
 		p.Package,
