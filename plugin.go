@@ -17,6 +17,7 @@ import (
 // Plugin defines the Helm plugin parameters.
 type Plugin struct {
 	Debug        bool     `envconfig:"DEBUG"`
+	ShowEnv      bool     `envconfig:"SHOW_ENV"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
 	Zone         string   `envconfig:"ZONE"`
@@ -130,9 +131,6 @@ func (p Plugin) deployPackage() error {
 	cmd := exec.Command("/bin/sh", "-c", helmcmd)
 	cmd.Env = os.Environ()
 	if p.Debug {
-		for _, e := range cmd.Env {
-			fmt.Println(e)
-		}
 		trace(cmd)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -246,20 +244,23 @@ func (p Plugin) pollTiller(retryCount int) error {
 // helm init
 func (p Plugin) helmInit() error {
 	ver, err := p.fetchHelmVersions()
-	if err != nil {
-		return err
-	}
 	var cmd *exec.Cmd
 
-	switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
-	case -1: // client is older than tiller
-		return errors.New("helm client is out of date")
-	case 1: // client is newer than tiller
-		cmd = exec.Command(helmBin, "init", "--upgrade")
-		break
-	default: // client and tiller are at the same version
-		cmd = exec.Command(helmBin, "init", "--client-only")
-		break
+	if err != nil {
+		// assume that Tiller is not installed
+		// other errors will be fetched by helm init
+		cmd = exec.Command(helmBin, "init")
+	} else {
+		switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
+		case -1: // client is older than tiller
+			return errors.New("helm client is out of date")
+		case 1: // client is newer than tiller
+			cmd = exec.Command(helmBin, "init", "--upgrade")
+			break
+		default: // client and tiller are at the same version
+			cmd = exec.Command(helmBin, "init", "--client-only")
+			break
+		}
 	}
 
 	if p.Debug {

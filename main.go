@@ -20,10 +20,13 @@ func main() {
 	if err := envconfig.Process("plugin", &p); err != nil {
 		logrus.WithError(err).Fatal("failed to parse parameters")
 	}
-	if p.Debug {
+	if p.ShowEnv {
 		for _, e := range os.Environ() {
-			fmt.Println(e)
+			pair := strings.Split(e, "=")
+			fmt.Println(pair[0])
 		}
+	}
+	if p.Debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 	if err := preparePlugin(&p); err != nil {

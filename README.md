@@ -5,6 +5,7 @@ Drone 0.6 plugin to use create and deploy Helm charts for Kubernetes and push He
 The following parameters are used to configure this plugin:
 
 * `debug` - enable debug mode.
+* `show_env` - outputs a list of env vars without values
 * `actions` - list of actions over chart - `create`, `push`, `deploy`. Required and order is important.
 * `zone` - zone of the Kubernetes cluster.
 * `cluster` - the Kubernetes cluster name.
