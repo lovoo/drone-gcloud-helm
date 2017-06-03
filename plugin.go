@@ -18,6 +18,8 @@ import (
 type Plugin struct {
 	Debug        bool     `envconfig:"DEBUG"`
 	ShowEnv      bool     `envconfig:"SHOW_ENV"`
+	Wait         bool     `envconfig:"WAIT"`
+	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
 	Zone         string   `envconfig:"ZONE"`
@@ -126,7 +128,12 @@ func (p Plugin) deployPackage() error {
 		p.Package,
 		p.ChartVersion,
 		strings.Join(p.Values, ","),
-		p.Namespace)
+		p.Namespace,
+	)
+
+	if p.Wait {
+		helmcmd = fmt.Sprintf("%s --wait --timeout %d", helmcmd, p.WaitTimeout)
+	}
 
 	cmd := exec.Command("/bin/sh", "-c", helmcmd)
 	cmd.Env = os.Environ()
