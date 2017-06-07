@@ -43,6 +43,7 @@ const (
 
 	createPkg = "create"
 	pushPkg   = "push"
+	pullPkg   = "pull"
 	deployPkg = "deploy"
 )
 
@@ -64,6 +65,10 @@ func (p Plugin) Exec() error {
 			}
 		case pushPkg:
 			if err := p.pushPackage(); err != nil {
+				return err
+			}
+		case pullPkg:
+			if err := p.pullPackage(); err != nil {
 				return err
 			}
 		case deployPkg:
@@ -94,13 +99,10 @@ func (p Plugin) createPackage() error {
 	return cmd.Run()
 }
 
-// pushPackage pushes Helm package to the Google Storage.
-// gsutil cp $PACKAGE-$PLUGIN_CHART_VERSION.tgz gs://$PLUGIN_BUCKET
-func (p Plugin) pushPackage() error {
-	cmd := exec.Command(gsutilBin, "cp",
-		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
-		fmt.Sprintf("gs://%s", p.Bucket),
-	)
+// cpPackage copies a file from SOURCE to DEST
+// gsutil cp SOURCE DEST
+func (p Plugin) cpPackage(source string, dest string) error {
+	cmd := exec.Command(gsutilBin, "cp", source, dest)
 	if p.Debug {
 		trace(cmd)
 		cmd.Stdout = os.Stdout
@@ -110,6 +112,24 @@ func (p Plugin) pushPackage() error {
 		return err
 	}
 	return nil
+}
+
+// cpPackage pulls helm chart from Google Storage to local
+// gsutil cp $PACKAGE-$PLUGIN_CHART_VERSION.tgz gs://$PLUGIN_BUCKET
+func (p Plugin) pullPackage() error {
+	return p.cpPackage(
+		fmt.Sprintf("gs://%s/%s-%s.tgz", p.Bucket, p.Package, p.ChartVersion),
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
+	)
+}
+
+// pushPackage pushes Helm package to the Google Storage.
+// gsutil cp $PACKAGE-$PLUGIN_CHART_VERSION.tgz gs://$PLUGIN_BUCKET
+func (p Plugin) pushPackage() error {
+	return p.cpPackage(
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
+		fmt.Sprintf("gs://%s", p.Bucket),
+	)
 }
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
