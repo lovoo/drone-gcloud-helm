@@ -17,6 +17,9 @@ import (
 // Plugin defines the Helm plugin parameters.
 type Plugin struct {
 	Debug        bool     `envconfig:"DEBUG"`
+	ShowEnv      bool     `envconfig:"SHOW_ENV"`
+	Wait         bool     `envconfig:"WAIT"`
+	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
 	Zone         string   `envconfig:"ZONE"`
@@ -40,6 +43,7 @@ const (
 
 	createPkg = "create"
 	pushPkg   = "push"
+	pullPkg   = "pull"
 	deployPkg = "deploy"
 )
 
@@ -61,6 +65,10 @@ func (p Plugin) Exec() error {
 			}
 		case pushPkg:
 			if err := p.pushPackage(); err != nil {
+				return err
+			}
+		case pullPkg:
+			if err := p.pullPackage(); err != nil {
 				return err
 			}
 		case deployPkg:
@@ -91,13 +99,10 @@ func (p Plugin) createPackage() error {
 	return cmd.Run()
 }
 
-// pushPackage pushes Helm package to the Google Storage.
-// gsutil cp $PACKAGE-$PLUGIN_CHART_VERSION.tgz gs://$PLUGIN_BUCKET
-func (p Plugin) pushPackage() error {
-	cmd := exec.Command(gsutilBin, "cp",
-		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
-		fmt.Sprintf("gs://%s", p.Bucket),
-	)
+// cpPackage copies a file from SOURCE to DEST
+// gsutil cp SOURCE DEST
+func (p Plugin) cpPackage(source string, dest string) error {
+	cmd := exec.Command(gsutilBin, "cp", source, dest)
 	if p.Debug {
 		trace(cmd)
 		cmd.Stdout = os.Stdout
@@ -109,6 +114,24 @@ func (p Plugin) pushPackage() error {
 	return nil
 }
 
+// cpPackage pulls helm chart from Google Storage to local
+// gsutil cp $PACKAGE-$PLUGIN_CHART_VERSION.tgz gs://$PLUGIN_BUCKET
+func (p Plugin) pullPackage() error {
+	return p.cpPackage(
+		fmt.Sprintf("gs://%s/%s-%s.tgz", p.Bucket, p.Package, p.ChartVersion),
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
+	)
+}
+
+// pushPackage pushes Helm package to the Google Storage.
+// gsutil cp $PACKAGE-$PLUGIN_CHART_VERSION.tgz gs://$PLUGIN_BUCKET
+func (p Plugin) pushPackage() error {
+	return p.cpPackage(
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
+		fmt.Sprintf("gs://%s", p.Bucket),
+	)
+}
+
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
 	if p.Debug {
@@ -118,13 +141,22 @@ func (p Plugin) deployPackage() error {
 	}
 
 	p.Values = append(p.Values, fmt.Sprintf("namespace=%s", p.Namespace))
-	cmd := exec.Command(helmBin, "upgrade",
+
+	helmcmd := fmt.Sprintf("%s upgrade %s %s-%s.tgz --set %s --install --namespace %s",
+		helmBin,
 		p.Release,
-		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
-		"--set", strings.Join(p.Values, ","),
-		"--install",
-		"--namespace", p.Namespace,
+		p.Package,
+		p.ChartVersion,
+		strings.Join(p.Values, ","),
+		p.Namespace,
 	)
+
+	if p.Wait {
+		helmcmd = fmt.Sprintf("%s --wait --timeout %d", helmcmd, p.WaitTimeout)
+	}
+
+	cmd := exec.Command("/bin/sh", "-c", helmcmd)
+	cmd.Env = os.Environ()
 	if p.Debug {
 		trace(cmd)
 		cmd.Stdout = os.Stdout
@@ -239,20 +271,23 @@ func (p Plugin) pollTiller(retryCount int) error {
 // helm init
 func (p Plugin) helmInit() error {
 	ver, err := p.fetchHelmVersions()
-	if err != nil {
-		return err
-	}
 	var cmd *exec.Cmd
 
-	switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
-	case -1: // client is older than tiller
-		return errors.New("helm client is out of date")
-	case 1: // client is newer than tiller
-		cmd = exec.Command(helmBin, "init", "--upgrade")
-		break
-	default: // client and tiller are at the same version
-		cmd = exec.Command(helmBin, "init", "--client-only")
-		break
+	if err != nil {
+		// assume that Tiller is not installed
+		// other errors will be fetched by helm init
+		cmd = exec.Command(helmBin, "init")
+	} else {
+		switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
+		case -1: // client is older than tiller
+			return errors.New("helm client is out of date")
+		case 1: // client is newer than tiller
+			cmd = exec.Command(helmBin, "init", "--upgrade")
+			break
+		default: // client and tiller are at the same version
+			cmd = exec.Command(helmBin, "init", "--client-only")
+			break
+		}
 	}
 
 	if p.Debug {
