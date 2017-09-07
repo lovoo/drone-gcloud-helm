@@ -19,6 +19,7 @@ type Plugin struct {
 	Debug        bool     `envconfig:"DEBUG"`
 	ShowEnv      bool     `envconfig:"SHOW_ENV"`
 	Wait         bool     `envconfig:"WAIT"`
+	Recreate     bool     `envconfig:"RECREATE_PODS" default:"false"`
 	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
@@ -41,6 +42,7 @@ const (
 	kubectlBin = "/opt/google-cloud-sdk/bin/kubectl"
 	helmBin    = "/opt/google-cloud-sdk/bin/helm"
 
+	lintPkg   = "lint"
 	createPkg = "create"
 	pushPkg   = "push"
 	pullPkg   = "pull"
@@ -51,14 +53,24 @@ var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.
 
 // Exec executes the plugin step.
 func (p Plugin) Exec() error {
-	if err := p.setupProject(); err != nil {
-		return err
+
+	// only setup project when needed args are provided
+	if p.Project != "" && p.Cluster != "" && p.AuthKey != "" {
+		if err := p.setupProject(); err != nil {
+			return err
+		}
+
+		if err := p.helmInit(); err != nil {
+			return err
+		}
 	}
-	if err := p.helmInit(); err != nil {
-		return err
-	}
+
 	for _, a := range p.Actions {
 		switch a {
+		case lintPkg:
+			if err := p.lintPackage(); err != nil {
+				return err
+			}
 		case createPkg:
 			if err := p.createPackage(); err != nil {
 				return err
@@ -132,6 +144,24 @@ func (p Plugin) pushPackage() error {
 	)
 }
 
+// helm lint $CHARTPATH -i
+func (p Plugin) lintPackage() error {
+	helmcmd := fmt.Sprintf("%s lint %s",
+		helmBin,
+		p.ChartPath,
+	)
+
+	cmd := exec.Command("/bin/sh", "-c", helmcmd)
+	cmd.Env = os.Environ()
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
+
+}
+
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
 	if p.Debug {
@@ -141,13 +171,18 @@ func (p Plugin) deployPackage() error {
 	}
 
 	p.Values = append(p.Values, fmt.Sprintf("namespace=%s", p.Namespace))
+	doRecreate := ""
+	if p.Recreate {
+		doRecreate = "--recreate-pods"
+	}
 
-	helmcmd := fmt.Sprintf("%s upgrade %s %s-%s.tgz --set %s --install --namespace %s",
+	helmcmd := fmt.Sprintf("%s upgrade %s %s-%s.tgz --set %s %s --install --namespace %s",
 		helmBin,
 		p.Release,
 		p.Package,
 		p.ChartVersion,
 		strings.Join(p.Values, ","),
+		doRecreate,
 		p.Namespace,
 	)
 

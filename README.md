@@ -8,7 +8,8 @@ The following parameters are used to configure this plugin:
 * `show_env` - outputs a list of env vars without values.
 * `wait` - Wait until all Pods, PVCs, Services, and min number of Pods of a Deployment are in a ready state before marking the release as successful.
 * `wait_timeout` - Time in seconds to wait for any individual kubernetes operation (like Jobs for hooks) (default 300).
-* `actions` - list of actions over chart - `create`, `push`, `deploy`. Required and order is important.
+* `recreate-pods` - If true, uses helm upgrade with the `recreate-pods` flag.
+* `actions` - list of actions over chart - `lint`, `create`, `push`, `deploy`. Required and order is important (except lint).
 * `zone` - zone of the Kubernetes cluster.
 * `cluster` - the Kubernetes cluster name.
 * `project` - the Google project identifier.
@@ -59,6 +60,19 @@ deploy:
       target: plugin_auth_key
   values:
     - "docker.tag=${DRONE_BUILD_NUMBER}"
+  when:
+    branch: master
+    event: push
+```
+
+Sample configuration for linting only:
+
+```
+lint:
+  image: foobar/drone-gcloud-helm
+  actions:
+    - lint
+  chart_path: chart/foo
   when:
     branch: master
     event: push
