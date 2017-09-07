@@ -46,6 +46,7 @@ deploy:
   image: foobar/drone-gcloud-helm
   debug: true
   actions:
+    - lint
     - create
     - push
     - deploy
