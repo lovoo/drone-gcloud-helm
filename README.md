@@ -30,12 +30,12 @@ Add a new secret, containing your JSON token to your project
 drone secret add --image=gcr.io/lovoo-ci/drone-gcloud-helm:1.1.0 --name=AWESOME_GCLOUD_TOKEN --value=@/path/to/your/token.json octocat/helloworld
 ```
 
-configure the drone-gcloud-helm plugin in your .drone.yaml to use your secret and alias it to plugin_auth_key
+configure the drone-gcloud-helm plugin in your .drone.yaml to use your secret and alias it to AUTH_KEY
 
 ```
   secrets:
     - source: AWESOME_GCLOUD_TOKEN
-      target: plugin_auth_key
+      target: AUTH_KEY
 ```
 
 
@@ -58,7 +58,7 @@ deploy:
   bucket: foo-charts
   secrets:
     - source: AWESOME_GCLOUD_TOKEN
-      target: plugin_auth_key
+      target: AUTH_KEY
   values:
     - "docker.tag=${DRONE_BUILD_NUMBER}"
   when:
