@@ -23,6 +23,7 @@ type Plugin struct {
 	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
+	KeyPath      string   `envconfig:"KEY_PATH"`
 	Zone         string   `envconfig:"ZONE"`
 	Cluster      string   `envconfig:"CLUSTER"`
 	Project      string   `envconfig:"PROJECT"`
@@ -55,7 +56,7 @@ var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.
 func (p Plugin) Exec() error {
 
 	// only setup project when needed args are provided
-	if p.Project != "" && p.Cluster != "" && p.AuthKey != "" {
+	if p.Project != "" && p.Cluster != "" && (p.AuthKey != "" || p.KeyPath != "") {
 		if err := p.setupProject(); err != nil {
 			return err
 		}
@@ -205,16 +206,20 @@ func (p Plugin) deployPackage() error {
 // gcloud config set project $PLUGIN_PROJECT
 // gcloud container clusters get-credentials $PLUGIN_CLUSTER --zone $PLUGIN_ZONE
 func (p Plugin) setupProject() error {
-	tmpfile, err := ioutil.TempFile("", "auth-key.json")
-	if err != nil {
-		return err
-	}
+	authFile := p.KeyPath
+	if p.AuthKey != "" && p.KeyPath == "" {
+		tmpfile, err := ioutil.TempFile("", "auth-key.json")
+		if err != nil {
+			return err
+		}
 
-	if _, err := tmpfile.Write([]byte(p.AuthKey)); err != nil {
-		return err
-	}
-	if err := tmpfile.Close(); err != nil {
-		return err
+		if _, err := tmpfile.Write([]byte(p.AuthKey)); err != nil {
+			return err
+		}
+		if err := tmpfile.Close(); err != nil {
+			return err
+		}
+		authFile = tmpfile.Name()
 	}
 
 	cmds := make([]*exec.Cmd, 0, 3)
@@ -222,7 +227,7 @@ func (p Plugin) setupProject() error {
 	// authorization
 	cmds = append(cmds, exec.Command(gcloudBin, "auth",
 		"activate-service-account",
-		fmt.Sprintf("--key-file=%s", tmpfile.Name()),
+		fmt.Sprintf("--key-file=%s", authFile),
 	))
 	// project configuration
 	cmds = append(cmds, exec.Command(gcloudBin, "config",
@@ -251,7 +256,7 @@ func (p Plugin) setupProject() error {
 		}
 	}
 
-	return os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", tmpfile.Name())
+	return os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile)
 }
 
 // fetchHelmVersions returns helm and tiller versions as map
