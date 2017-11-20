@@ -1,0 +1,23 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - 'run'
+  - '--volume=/workspace/behat-tester:/go/src/github.com/lovoo/cloud-builders/behat-tester'
+  - '--entrypoint=bash'
+  - 'library/golang:latest'
+  - '-c'
+  - |
+    cd /go/src/github.com/lovoo/drone-gcloud-helm;
+    rm -rf build/;
+    go build -a --ldflags '-extldflags "-static"' -o build/drone-gcloud-helm
+  id: 'build_binary'
+
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - 'build'
+    - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:latest'
+    - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA'
+    - '.']
+  wait_for: ['build_binary']
+
+images: ['gcr.io/$PROJECT_ID/drone-gcloud-helm:latest', 'gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA']
