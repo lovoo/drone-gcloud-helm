@@ -1,9 +1,8 @@
 FROM alpine:3.5
 
-ENV GCLOUD_VERSION=142.0.0
-ENV KUBECTL_VERSION=v1.5.2
-ENV HELM_VERSION=v2.6.1
-
+ENV GCLOUD_VERSION=180.0.0
+ENV KUBECTL_VERSION=v1.8.3
+ENV HELM_VERSION=v2.7.2
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
 
