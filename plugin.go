@@ -48,6 +48,7 @@ const (
 	pushPkg   = "push"
 	pullPkg   = "pull"
 	deployPkg = "deploy"
+	depsPkg   = "deps"
 )
 
 var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.SemVer:"(?P<semver>.*?)".*?GitCommit:"(?P<commit>.*?)".*?GitTreeState:"(?P<treestate>.*?)"`)
@@ -86,6 +87,10 @@ func (p Plugin) Exec() error {
 			}
 		case deployPkg:
 			if err := p.deployPackage(); err != nil {
+				return err
+			}
+		case depsPkg:
+			if err := p.depsPackage(); err != nil {
 				return err
 			}
 		default:
@@ -148,6 +153,24 @@ func (p Plugin) pushPackage() error {
 // helm lint $CHARTPATH -i
 func (p Plugin) lintPackage() error {
 	helmcmd := fmt.Sprintf("%s lint %s",
+		helmBin,
+		p.ChartPath,
+	)
+
+	cmd := exec.Command("/bin/sh", "-c", helmcmd)
+	cmd.Env = os.Environ()
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
+
+}
+
+// helm update dependencies
+func (p Plugin) depsPackage() error {
+	helmcmd := fmt.Sprintf("%s dependency update %s",
 		helmBin,
 		p.ChartPath,
 	)
