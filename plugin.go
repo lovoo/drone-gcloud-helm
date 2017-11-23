@@ -168,8 +168,14 @@ func (p Plugin) lintPackage() error {
 
 }
 
-// helm update dependencies
+// helm update dependencies form requirements.yaml
 func (p Plugin) depsPackage() error {
+	if err := p.addRepo(); err != nil {
+		return err
+	}
+	if err := p.updateRepo(); err != nil {
+		return err
+	}
 	helmcmd := fmt.Sprintf("%s dependency update %s",
 		helmBin,
 		p.ChartPath,
