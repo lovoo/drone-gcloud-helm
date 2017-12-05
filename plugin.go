@@ -175,42 +175,29 @@ func (p Plugin) setupProject() error {
 		}
 		authFile = tmpfile.Name()
 	}
-
-	cmds := make([]*exec.Cmd, 0, 3)
-
-	// authorization
-	cmds = append(cmds, exec.Command(gcloudBin, "auth",
-		"activate-service-account",
-		fmt.Sprintf("--key-file=%s", authFile),
-	))
-	// project configuration
-	cmds = append(cmds, exec.Command(gcloudBin, "config",
-		"set",
-		"project",
-		p.Project,
-	))
-	// cluster configuration
-	cmds = append(cmds, exec.Command(gcloudBin, "container",
-		"clusters",
-		"get-credentials",
-		p.Cluster,
-		"--zone",
-		p.Zone,
-	))
-
-	for _, cmd := range cmds {
-		if p.Debug {
-			trace(cmd)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
-
-		if err := cmd.Run(); err != nil {
-			return err
-		}
+	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile); err != nil {
+		return fmt.Errorf("could not set GOOGLE_APPLICATION_CREDENTIALS env variable: %v", err)
 	}
 
-	return os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile)
+	// authorization
+	cmd := exec.Command(gcloudBin, "auth", "activate-service-account", fmt.Sprintf("--key-file=%s", authFile))
+	if err := run(cmd, p.Debug); err != nil {
+		return fmt.Errorf("could not authorize with glcoud: %v", err)
+	}
+
+	// project configuration
+	cmd = exec.Command(gcloudBin, "config", "set", "project", p.Project)
+	if err := run(cmd, p.Debug); err != nil {
+		return fmt.Errorf("could not the configure the project with glcoud: %v", err)
+	}
+
+	// cluster configuration
+	cmd = exec.Command(gcloudBin, "container", "clusters", "get-credentials", p.Cluster, "--zone", p.Zone)
+	if err := run(cmd, p.Debug); err != nil {
+		return fmt.Errorf("could not configure the cluster with glcoud: %v", err)
+	}
+
+	return nil
 }
 
 func run(cmd *exec.Cmd, debug bool) error {
