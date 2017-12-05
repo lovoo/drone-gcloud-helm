@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -51,6 +52,27 @@ func preparePlugin(p *Plugin) error {
 	}
 	if p.Namespace == "" {
 		p.Namespace = "default"
+	}
+
+	if p.AuthKey != "" {
+		tmpfile, err := ioutil.TempFile("", "auth-key.json")
+		if err != nil {
+			return err
+		}
+
+		if _, err := tmpfile.Write([]byte(p.AuthKey)); err != nil {
+			return err
+		}
+		if err := tmpfile.Close(); err != nil {
+			return err
+		}
+		p.KeyPath = tmpfile.Name()
+	}
+
+	if p.KeyPath != "" {
+		if err := setupAuth(p.KeyPath, p.Debug); err != nil {
+			return fmt.Errorf("could not setup auth: %v", err)
+		}
 	}
 
 	return nil
