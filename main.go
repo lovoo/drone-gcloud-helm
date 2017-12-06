@@ -3,23 +3,17 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 
-	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	// Load env-file if it exists first
-	if env := os.Getenv("PLUGIN_ENV_FILE"); env != "" {
-		godotenv.Load(env)
-	}
-
 	var p Plugin
 	if err := envconfig.Process("plugin", &p); err != nil {
-		logrus.WithError(err).Fatal("failed to parse parameters")
+		log.Fatalf("failed to parse parameters: %v", err)
 	}
 	if p.ShowEnv {
 		for _, e := range os.Environ() {
@@ -27,15 +21,13 @@ func main() {
 			fmt.Println(pair[0])
 		}
 	}
-	if p.Debug {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
+
 	if err := preparePlugin(&p); err != nil {
-		logrus.WithError(err).Fatal("failed to prepare plugin")
+		log.Fatalf("failed to prepare plugin: %v", err)
 	}
 
 	if err := p.Exec(); err != nil {
-		logrus.WithError(err).Fatal("failed to execute plugin")
+		log.Fatalf("failed to execute plugin: %v", err)
 	}
 }
 
