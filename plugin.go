@@ -112,6 +112,19 @@ func setupProject(project, cluster, zone string, debug bool) error {
 	return nil
 }
 
+func setupAuth(authFile string, debug bool) error {
+	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile); err != nil {
+		return fmt.Errorf("could not set GOOGLE_APPLICATION_CREDENTIALS env variable: %v", err)
+	}
+
+	// authorization
+	cmd := exec.Command(gcloudBin, "auth", "activate-service-account", fmt.Sprintf("--key-file=%s", authFile))
+	if err := run(cmd, debug); err != nil {
+		return fmt.Errorf("could not authorize with glcoud: %v", err)
+	}
+	return nil
+}
+
 // createPackage creates Helm package for Kubernetes.
 // helm package --version $PLUGIN_CHART_VERSION $PLUGIN_CHART_PATH
 func (p Plugin) createPackage() error {
@@ -170,19 +183,6 @@ func (p Plugin) deployPackage() error {
 	}
 
 	return run(exec.Command("/bin/sh", "-c", helmcmd), p.Debug)
-}
-
-func setupAuth(authFile string, debug bool) error {
-	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile); err != nil {
-		return fmt.Errorf("could not set GOOGLE_APPLICATION_CREDENTIALS env variable: %v", err)
-	}
-
-	// authorization
-	cmd := exec.Command(gcloudBin, "auth", "activate-service-account", fmt.Sprintf("--key-file=%s", authFile))
-	if err := run(cmd, debug); err != nil {
-		return fmt.Errorf("could not authorize with glcoud: %v", err)
-	}
-	return nil
 }
 
 // fetchHelmVersions returns helm and tiller versions as map
