@@ -25,7 +25,7 @@ RUN mkdir -p /tmp/gcloud && \
 
 	cd && rm -rf /tmp/gcloud
 
-COPY build/drone-gcloud-helm /opt/google-cloud-sdk/bin/
+COPY drone-gcloud-helm /opt/google-cloud-sdk/bin/
 
 RUN chmod a+x /opt/google-cloud-sdk/bin/drone-gcloud-helm
 
