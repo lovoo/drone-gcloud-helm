@@ -1,7 +1,7 @@
 FROM alpine:3.7
 
-ARG GCLOUD_VERSION=180.0.0
-ARG KUBECTL_VERSION=v1.8.3
+ARG GCLOUD_VERSION=182.0.0
+ARG KUBECTL_VERSION=v1.8.4
 ARG HELM_VERSION=v2.7.2
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
