@@ -184,15 +184,21 @@ func (p Plugin) deployPackage() error {
 }
 
 // fetchHelmVersions returns helm and tiller versions as map
-func fetchHelmVersions() (map[string]map[string]string, error) {
+func fetchHelmVersions(debug bool) (map[string]map[string]string, error) {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd := exec.Command(helmBin, "version")
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
+	if debug {
+		log.Printf("running: %s", strings.Join(cmd.Args, " "))
+	}
 	if err := cmd.Run(); err != nil {
 		return nil, errors.New(stderr.String())
+	}
+	if debug {
+		log.Printf("%s", out.String())
 	}
 
 	lines := strings.Split(out.String(), "\n")
@@ -214,7 +220,7 @@ func fetchHelmVersions() (map[string]map[string]string, error) {
 func helmInit(debug bool) error {
 	args := []string{"init"}
 
-	ver, err := fetchHelmVersions()
+	ver, err := fetchHelmVersions(debug)
 	if err == nil {
 		switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
 		case -1: // client is older than tiller
