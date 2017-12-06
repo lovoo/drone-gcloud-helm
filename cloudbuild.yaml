@@ -1,13 +1,17 @@
 steps:
-  - id: 'build'
-    name: 'gcr.io/cloud-builders/go'
-    env: ['PROJECT_ROOT=drone-gcloud-helm']
-    args: ['install', '.']
+- id: 'build'
+  name: 'gcr.io/cloud-builders/go'
+  env: ['PROJECT_ROOT=drone-gcloud-helm']
+  args: ['install', '.']
 
-  - id: 'image'
-    name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA', '.']
+- id: 'image'
+  name: 'gcr.io/cloud-builders/docker'
+  args:
+  - 'build'
+  - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA'
+  - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:latest'
+  - '.'
 
-images: ['gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA']
-tags:
-  - 'latest'
+images:
+- 'gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA'
+- 'gcr.io/$PROJECT_ID/drone-gcloud-helm:latest'
