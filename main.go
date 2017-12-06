@@ -49,14 +49,14 @@ func preparePlugin(p *Plugin) error {
 	if p.AuthKey != "" {
 		tmpfile, err := ioutil.TempFile("", "auth-key.json")
 		if err != nil {
-			return err
+			return fmt.Errorf("could not create temporary file for the auth key: %v", err)
 		}
 
 		if _, err := tmpfile.Write([]byte(p.AuthKey)); err != nil {
-			return err
+			return fmt.Errorf("could not write to temporary auth key file: %v", err)
 		}
 		if err := tmpfile.Close(); err != nil {
-			return err
+			return fmt.Errorf("could not close the temporary auth key file: %v", err)
 		}
 		p.KeyPath = tmpfile.Name()
 	}
