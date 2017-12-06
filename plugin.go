@@ -93,9 +93,6 @@ func (p Plugin) Exec() error {
 }
 
 // setupProject setups gcloud project.
-// gcloud auth activate-service-account --key-file=$KEY_FILE_PATH
-// gcloud config set project $PLUGIN_PROJECT
-// gcloud container clusters get-credentials $PLUGIN_CLUSTER --zone $PLUGIN_ZONE
 func setupProject(project, cluster, zone string, debug bool) error {
 	// project configuration
 	cmd := exec.Command(gcloudBin, "config", "set", "project", project)
@@ -112,6 +109,7 @@ func setupProject(project, cluster, zone string, debug bool) error {
 	return nil
 }
 
+// setupAuth configures gcloud to use the given authFile
 func setupAuth(authFile string, debug bool) error {
 	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile); err != nil {
 		return fmt.Errorf("could not set GOOGLE_APPLICATION_CREDENTIALS env variable: %v", err)
