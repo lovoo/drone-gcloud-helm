@@ -5,13 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 // Plugin defines the Helm plugin parameters.
@@ -54,14 +52,12 @@ var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.
 
 // Exec executes the plugin step.
 func (p Plugin) Exec() error {
-
 	// only setup project when needed args are provided
-	if p.Project != "" && p.Cluster != "" && (p.AuthKey != "" || p.KeyPath != "") {
-		if err := p.setupProject(); err != nil {
+	if p.Project != "" && p.Cluster != "" && p.Zone != "" {
+		if err := setupProject(p.Project, p.Cluster, p.Zone, p.Debug); err != nil {
 			return err
 		}
-
-		if err := p.helmInit(); err != nil {
+		if err := helmInit(p.Debug); err != nil {
 			return err
 		}
 	}
@@ -96,35 +92,47 @@ func (p Plugin) Exec() error {
 	return nil
 }
 
+// setupProject setups gcloud project.
+func setupProject(project, cluster, zone string, debug bool) error {
+	// project configuration
+	cmd := exec.Command(gcloudBin, "config", "set", "project", project)
+	if err := run(cmd, debug); err != nil {
+		return fmt.Errorf("could not the configure the project with glcoud: %v", err)
+	}
+
+	// cluster configuration
+	cmd = exec.Command(gcloudBin, "container", "clusters", "get-credentials", cluster, "--zone", zone)
+	if err := run(cmd, debug); err != nil {
+		return fmt.Errorf("could not configure the cluster with glcoud: %v", err)
+	}
+
+	return nil
+}
+
+// setupAuth configures gcloud to use the given authFile
+func setupAuth(authFile string, debug bool) error {
+	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile); err != nil {
+		return fmt.Errorf("could not set GOOGLE_APPLICATION_CREDENTIALS env variable: %v", err)
+	}
+
+	// authorization
+	cmd := exec.Command(gcloudBin, "auth", "activate-service-account", fmt.Sprintf("--key-file=%s", authFile))
+	if err := run(cmd, debug); err != nil {
+		return fmt.Errorf("could not authorize with glcoud: %v", err)
+	}
+	return nil
+}
+
 // createPackage creates Helm package for Kubernetes.
 // helm package --version $PLUGIN_CHART_VERSION $PLUGIN_CHART_PATH
 func (p Plugin) createPackage() error {
-	cmd := exec.Command(helmBin, "package",
-		"--version",
-		p.ChartVersion,
-		p.ChartPath,
-	)
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	return cmd.Run()
+	return run(exec.Command(helmBin, "package", "--version", p.ChartVersion, p.ChartPath), p.Debug)
 }
 
 // cpPackage copies a file from SOURCE to DEST
 // gsutil cp SOURCE DEST
 func (p Plugin) cpPackage(source string, dest string) error {
-	cmd := exec.Command(gsutilBin, "cp", source, dest)
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
+	return run(exec.Command(gsutilBin, "cp", source, dest), p.Debug)
 }
 
 // cpPackage pulls helm chart from Google Storage to local
@@ -147,31 +155,11 @@ func (p Plugin) pushPackage() error {
 
 // helm lint $CHARTPATH -i
 func (p Plugin) lintPackage() error {
-	helmcmd := fmt.Sprintf("%s lint %s",
-		helmBin,
-		p.ChartPath,
-	)
-
-	cmd := exec.Command("/bin/sh", "-c", helmcmd)
-	cmd.Env = os.Environ()
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	return cmd.Run()
-
+	return run(exec.Command(helmBin, "lint", p.ChartPath), p.Debug)
 }
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
-	if p.Debug {
-		if err := p.kubeConfig(); err != nil {
-			return err
-		}
-	}
-
-	p.Values = append(p.Values, fmt.Sprintf("namespace=%s", p.Namespace))
 	doRecreate := ""
 	if p.Recreate {
 		doRecreate = "--recreate-pods"
@@ -191,85 +179,25 @@ func (p Plugin) deployPackage() error {
 		helmcmd = fmt.Sprintf("%s --wait --timeout %d", helmcmd, p.WaitTimeout)
 	}
 
-	cmd := exec.Command("/bin/sh", "-c", helmcmd)
-	cmd.Env = os.Environ()
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	return cmd.Run()
-}
-
-// setupProject setups gcloud project.
-// gcloud auth activate-service-account --key-file=$KEY_FILE_PATH
-// gcloud config set project $PLUGIN_PROJECT
-// gcloud container clusters get-credentials $PLUGIN_CLUSTER --zone $PLUGIN_ZONE
-func (p Plugin) setupProject() error {
-	authFile := p.KeyPath
-	if p.AuthKey != "" && p.KeyPath == "" {
-		tmpfile, err := ioutil.TempFile("", "auth-key.json")
-		if err != nil {
-			return err
-		}
-
-		if _, err := tmpfile.Write([]byte(p.AuthKey)); err != nil {
-			return err
-		}
-		if err := tmpfile.Close(); err != nil {
-			return err
-		}
-		authFile = tmpfile.Name()
-	}
-
-	cmds := make([]*exec.Cmd, 0, 3)
-
-	// authorization
-	cmds = append(cmds, exec.Command(gcloudBin, "auth",
-		"activate-service-account",
-		fmt.Sprintf("--key-file=%s", authFile),
-	))
-	// project configuration
-	cmds = append(cmds, exec.Command(gcloudBin, "config",
-		"set",
-		"project",
-		p.Project,
-	))
-	// cluster configuration
-	cmds = append(cmds, exec.Command(gcloudBin, "container",
-		"clusters",
-		"get-credentials",
-		p.Cluster,
-		"--zone",
-		p.Zone,
-	))
-
-	for _, cmd := range cmds {
-		if p.Debug {
-			trace(cmd)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
-
-		if err := cmd.Run(); err != nil {
-			return err
-		}
-	}
-
-	return os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", authFile)
+	return run(exec.Command("/bin/sh", "-c", helmcmd), p.Debug)
 }
 
 // fetchHelmVersions returns helm and tiller versions as map
-// helm version
-func (p Plugin) fetchHelmVersions() (map[string]map[string]string, error) {
+func fetchHelmVersions(debug bool) (map[string]map[string]string, error) {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd := exec.Command(helmBin, "version")
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
+	if debug {
+		log.Printf("running: %s", strings.Join(cmd.Args, " "))
+	}
 	if err := cmd.Run(); err != nil {
 		return nil, errors.New(stderr.String())
+	}
+	if debug {
+		log.Printf("%s", out.String())
 	}
 
 	lines := strings.Split(out.String(), "\n")
@@ -287,131 +215,49 @@ func (p Plugin) fetchHelmVersions() (map[string]map[string]string, error) {
 	return versions, nil
 }
 
-// pollTiller repeatedly calls helm version and checks its exit code
-// helm version
-func (p Plugin) pollTiller(retryCount int) error {
-	var pollErr error
-	for ; retryCount >= 0; retryCount-- {
-		pollCmd := exec.Command(helmBin, "version")
-		if p.Debug {
-			trace(pollCmd)
-			pollCmd.Stdout = os.Stdout
-			pollCmd.Stderr = os.Stderr
-		}
-		pollErr = pollCmd.Run()
-		if pollErr == nil {
-			break
-		}
-	}
-
-	return pollErr
-}
-
 // helmInit inits Triller on Kubernetes cluster.
-// helm init
-func (p Plugin) helmInit() error {
-	ver, err := p.fetchHelmVersions()
-	var cmd *exec.Cmd
+func helmInit(debug bool) error {
+	args := []string{"init"}
 
-	if err != nil {
-		// assume that Tiller is not installed
-		// other errors will be fetched by helm init
-		cmd = exec.Command(helmBin, "init")
-	} else {
+	ver, err := fetchHelmVersions(debug)
+	if err == nil {
 		switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
 		case -1: // client is older than tiller
-			return errors.New("helm client is out of date")
+			return fmt.Errorf("helm client is out of date")
 		case 1: // client is newer than tiller
-			cmd = exec.Command(helmBin, "init", "--upgrade")
-			break
+			args = append(args, "--upgrade")
 		default: // client and tiller are at the same version
-			cmd = exec.Command(helmBin, "init", "--client-only")
-			break
+			args = append(args, "--client-only")
 		}
 	}
 
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-
-	if err := cmd.Run(); err != nil {
+	if err := run(exec.Command(helmBin, args...), debug); err != nil {
 		return err
 	}
 
 	// poll for tiller (call helm version 10 times)
-	if err := p.pollTiller(10); err != nil {
-		return err
-	}
-
-	return nil
+	return pollTiller(10, debug)
 }
 
-func (p Plugin) addRepo() error {
-	cmd := exec.Command(helmBin,
-		"repo", "add",
-		p.Bucket, p.ChartRepo,
-	)
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+// pollTiller repeatedly calls helm version and checks its exit code
+func pollTiller(retries int, debug bool) error {
+	var err error
+	for i := 0; i < retries; i++ {
+		if err = run(exec.Command(helmBin, "version"), debug); err == nil {
+			return nil
+		}
 	}
-	return cmd.Run()
-}
-
-func (p Plugin) updateRepo() error {
-	cmd := exec.Command(helmBin,
-		"repo", "update",
-	)
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	return cmd.Run()
-}
-
-func (p Plugin) indexRepo() error {
-	cmd := exec.Command(helmBin, "repo",
-		"index", p.Bucket,
-		"--url", p.ChartRepo,
-	)
-	if p.Debug {
-		trace(cmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-	return cmd.Run()
+	return err
 }
 
 func (p Plugin) movePkg() error {
 	if err := os.Mkdir(p.Bucket, os.ModeDir); err != nil {
 		return err
 	}
-	if err := cp(
+	return cp(
 		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
 		fmt.Sprintf("%s/%s-%s.tgz", p.Bucket, p.Package, p.ChartVersion),
-	); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p Plugin) kubeConfig() error {
-	cmd := exec.Command(kubectlBin, "config", "view")
-	trace(cmd)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
-}
-
-// trace writes each command to stdout with the command wrapped in an xml
-// tag so that it can be extracted and displayed in the logs.
-func trace(cmd *exec.Cmd) {
-	logrus.WithField("cmd", cmd.Args).Debug("debug")
+	)
 }
 
 // cp copies file
@@ -450,4 +296,13 @@ func scanNamed(str string, rg *regexp.Regexp) (map[string]string, error) {
 	}
 
 	return result, nil
+}
+
+func run(cmd *exec.Cmd, debug bool) error {
+	if debug {
+		log.Printf("running: %s", strings.Join(cmd.Args, " "))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }

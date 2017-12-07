@@ -1,23 +1,17 @@
 steps:
-- name: 'gcr.io/cloud-builders/docker'
-  args:
-  - 'run'
-  - '--volume=/workspace/behat-tester:/go/src/github.com/lovoo/cloud-builders/behat-tester'
-  - '--entrypoint=bash'
-  - 'library/golang:latest'
-  - '-c'
-  - |
-    cd /go/src/github.com/lovoo/drone-gcloud-helm;
-    rm -rf build/;
-    go build -a --ldflags '-extldflags "-static"' -o build/drone-gcloud-helm
-  id: 'build_binary'
+- id: 'build'
+  name: 'gcr.io/lovoo-ci/cloud-builders-go:1.9'
+  env: ['PROJECT_ROOT=drone-gcloud-helm']
+  args: ['install', '.']
 
-- name: 'gcr.io/cloud-builders/docker'
+- id: 'image'
+  name: 'gcr.io/cloud-builders/docker'
   args:
-    - 'build'
-    - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:latest'
-    - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA'
-    - '.']
-  wait_for: ['build_binary']
+  - 'build'
+  - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA'
+  - '--tag=gcr.io/$PROJECT_ID/drone-gcloud-helm:latest'
+  - '.'
 
-images: ['gcr.io/$PROJECT_ID/drone-gcloud-helm:latest', 'gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA']
+images:
+- 'gcr.io/$PROJECT_ID/drone-gcloud-helm:$SHORT_SHA'
+- 'gcr.io/$PROJECT_ID/drone-gcloud-helm:latest'

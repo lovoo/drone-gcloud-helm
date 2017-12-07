@@ -1,33 +1,31 @@
-FROM alpine:3.5
+FROM alpine:3.7
 
-ENV GCLOUD_VERSION=180.0.0
-ENV KUBECTL_VERSION=v1.8.3
-ENV HELM_VERSION=v2.7.2
+ARG GCLOUD_VERSION=182.0.0
+ARG KUBECTL_VERSION=v1.8.4
+ARG HELM_VERSION=v2.7.2
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
+RUN mkdir /opt
 
-RUN mkdir -p /opt && cd /opt && \
-	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
+# gcloud
+RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
 	tar -xvf google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
-	google-cloud-sdk/install.sh --usage-reporting=true --path-update=true && \
+	mv google-cloud-sdk /opt/google-cloud-sdk && \
+	/opt/google-cloud-sdk/install.sh --usage-reporting=true --path-update=true && \
 	rm -f google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz
 
-RUN mkdir -p /tmp/gcloud && \
-	cd /tmp/gcloud && \
-	wget -q https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
-	cp kubectl /opt/google-cloud-sdk/bin/ && \
-	chmod a+x /opt/google-cloud-sdk/bin/kubectl && \
+# kubectl
+RUN wget -q https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl -O /opt/google-cloud-sdk/bin/kubectl  && \
+	chmod a+x /opt/google-cloud-sdk/bin/kubectl
 
-	wget -q https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
+# helm
+RUN	wget -q https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	tar -xvf helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	cp linux-amd64/helm /opt/google-cloud-sdk/bin/ && \
 	chmod a+x /opt/google-cloud-sdk/bin/helm && \
+	rm -rf helm-${HELM_VERSION}-linux-amd64.tar.gz linux-amd64
 
-	cd && rm -rf /tmp/gcloud
-
-COPY build/drone-gcloud-helm /opt/google-cloud-sdk/bin/
-
-RUN chmod a+x /opt/google-cloud-sdk/bin/drone-gcloud-helm
+COPY gopath/bin/drone-gcloud-helm /opt/google-cloud-sdk/bin/
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
