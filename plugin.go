@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -33,6 +34,7 @@ type Plugin struct {
 	Release      string   `envconfig:"RELEASE"`
 	Package      string   `envconfig:"PACKAGE"`
 	Values       []string `envconfig:"VALUES"`
+	ValueFiles   []string `envconfig:"VALUE_FILES"`
 }
 
 const (
@@ -160,26 +162,31 @@ func (p Plugin) lintPackage() error {
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
-	doRecreate := ""
-	if p.Recreate {
-		doRecreate = "--recreate-pods"
-	}
-
-	helmcmd := fmt.Sprintf("%s upgrade %s %s-%s.tgz --set %s %s --install --namespace %s",
+	args := []string{
+		"-c",
 		helmBin,
+		"upgrade",
 		p.Release,
-		p.Package,
-		p.ChartVersion,
-		strings.Join(p.Values, ","),
-		doRecreate,
-		p.Namespace,
-	)
+		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
+	}
+	if len(p.ValueFiles) > 0 {
+		for _, f := range p.ValueFiles {
+			args = append(args, "-f", f)
+		}
+	}
+	if len(p.Values) > 0 {
+		args = append(args, "--set", strings.Join(p.Values, ","))
+	}
+	if p.Recreate {
+		args = append(args, "--recreate-pods")
+	}
+	args = append(args, "--install")
+	args = append(args, "--namespace", p.Namespace)
 
 	if p.Wait {
-		helmcmd = fmt.Sprintf("%s --wait --timeout %d", helmcmd, p.WaitTimeout)
+		args = append(args, "--wait", "--timeout", strconv.Itoa(int(p.WaitTimeout)))
 	}
-
-	return run(exec.Command("/bin/sh", "-c", helmcmd), p.Debug)
+	return run(exec.Command("/bin/sh", args...), p.Debug)
 }
 
 // fetchHelmVersions returns helm and tiller versions as map
