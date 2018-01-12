@@ -163,7 +163,6 @@ func (p Plugin) lintPackage() error {
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
 	args := []string{
-		"-c",
 		helmBin,
 		"upgrade",
 		p.Release,
@@ -186,7 +185,7 @@ func (p Plugin) deployPackage() error {
 	if p.Wait {
 		args = append(args, "--wait", "--timeout", strconv.Itoa(int(p.WaitTimeout)))
 	}
-	return run(exec.Command("/bin/sh", args...), p.Debug)
+	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
 
 // fetchHelmVersions returns helm and tiller versions as map
