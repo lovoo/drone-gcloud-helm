@@ -48,6 +48,7 @@ const (
 	pushPkg   = "push"
 	pullPkg   = "pull"
 	deployPkg = "deploy"
+	depsPkg   = "deps"
 )
 
 var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.SemVer:"(?P<semver>.*?)".*?GitCommit:"(?P<commit>.*?)".*?GitTreeState:"(?P<treestate>.*?)"`)
@@ -84,6 +85,10 @@ func (p Plugin) Exec() error {
 			}
 		case deployPkg:
 			if err := p.deployPackage(); err != nil {
+				return err
+			}
+		case depsPkg:
+			if err := p.depsPackage(); err != nil {
 				return err
 			}
 		default:
@@ -158,6 +163,30 @@ func (p Plugin) pushPackage() error {
 // helm lint $CHARTPATH -i
 func (p Plugin) lintPackage() error {
 	return run(exec.Command(helmBin, "lint", p.ChartPath), p.Debug)
+}
+
+// helm update dependencies form requirements.yaml
+func (p Plugin) depsPackage() error {
+	if err := p.addRepo(); err != nil {
+		return err
+	}
+	if err := p.updateRepo(); err != nil {
+		return err
+	}
+	helmcmd := fmt.Sprintf("%s dependency update %s",
+		helmBin,
+		p.ChartPath,
+	)
+
+	cmd := exec.Command("/bin/sh", "-c", helmcmd)
+	cmd.Env = os.Environ()
+	if p.Debug {
+		trace(cmd)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
+
 }
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
