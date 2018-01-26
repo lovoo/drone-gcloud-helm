@@ -195,11 +195,7 @@ func (p Plugin) deployPackage() error {
 
 // helm test $PACKAGE
 func (p Plugin) testPackage() error {
-	args := []string{
-		helmBin,
-		"test",
-		p.Release,
-	}
+	args := []string{helmBin, "test", p.Release}
 	if p.Wait {
 		args = append(args, "--wait", "--timeout", strconv.Itoa(int(p.WaitTimeout)))
 	}
