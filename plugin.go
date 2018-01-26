@@ -48,6 +48,7 @@ const (
 	pushPkg   = "push"
 	pullPkg   = "pull"
 	deployPkg = "deploy"
+	testPkg   = "test"
 )
 
 var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.SemVer:"(?P<semver>.*?)".*?GitCommit:"(?P<commit>.*?)".*?GitTreeState:"(?P<treestate>.*?)"`)
@@ -84,6 +85,10 @@ func (p Plugin) Exec() error {
 			}
 		case deployPkg:
 			if err := p.deployPackage(); err != nil {
+				return err
+			}
+		case testPkg:
+			if err := p.testPackage(); err != nil {
 				return err
 			}
 		default:
@@ -182,6 +187,15 @@ func (p Plugin) deployPackage() error {
 	args = append(args, "--install")
 	args = append(args, "--namespace", p.Namespace)
 
+	if p.Wait {
+		args = append(args, "--wait", "--timeout", strconv.Itoa(int(p.WaitTimeout)))
+	}
+	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
+}
+
+// helm test $PACKAGE
+func (p Plugin) testPackage() error {
+	args := []string{helmBin, "test", p.Release}
 	if p.Wait {
 		args = append(args, "--wait", "--timeout", strconv.Itoa(int(p.WaitTimeout)))
 	}
