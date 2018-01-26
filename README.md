@@ -9,7 +9,7 @@ The following parameters are used to configure this plugin:
 * `wait` - Wait until all Pods, PVCs, Services, and min number of Pods of a Deployment are in a ready state before marking the release as successful.
 * `wait_timeout` - Time in seconds to wait for any individual kubernetes operation (like Jobs for hooks) (default 300).
 * `recreate-pods` - If true, uses helm upgrade with the `recreate-pods` flag.
-* `actions` - list of actions over chart - `lint`, `create`, `push`, `deploy`. Required and order is important (except lint).
+* `actions` - list of actions over chart - `lint`, `create`, `push`, `deploy`, `test`. Required and order is important (except lint).
 * `zone` - zone of the Kubernetes cluster.
 * `cluster` - the Kubernetes cluster name.
 * `project` - the Google project identifier.
@@ -21,6 +21,13 @@ The following parameters are used to configure this plugin:
 * `package` - the package name. Default is chart name.
 * `release` - the release name used for helm upgrade. Defaults to package name.
 * `values` - list of chart values. Would be set via `--set` Helm flag.
+
+Chart Testing:
+
+Create an extra template (most likely a pod) in charts/*chartname*/tests annotated with
+`"helm.sh/hook": test-success` and run the drone plugin with action "test".
+
+An example can be found [here](https://github.com/kubernetes/helm/blob/master/docs/chart_tests.md).
 
 Auth Key Management:
 
@@ -50,6 +57,7 @@ deploy:
     - create
     - push
     - deploy
+    - test
   chart_path: chart/foo
   chart_version: ${DRONE_BUILD_NUMBER}
   project: foo-project
