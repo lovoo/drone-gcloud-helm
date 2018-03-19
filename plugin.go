@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gopkg.in/src-d/go-git.v4"
 )
 
 // Plugin defines the Helm plugin parameters.
@@ -86,14 +88,37 @@ func (p Plugin) Exec() error {
 			}
 		case deployPkg:
 			if p.CompsFromGit {
-				msg, err := exec.Command("/bin/sh -c git log -1 --pretty=%B | grep '/deploy' | cut -c 2-").Output()
+				// Opens an already existent repository.
+				r, err := git.PlainOpen(".")
 				if err != nil {
 					return err
 				}
-				if len(msg) < 1 {
+
+				ref, err := r.Head()
+				if err != nil {
+					return err
+				}
+				// get commit Iterator
+				cIter, err := r.Log(&git.LogOptions{From: ref.Hash()})
+				if err != nil {
+					return err
+				}
+				com, err := cIter.Next()
+				if err != nil {
+					return err
+				}
+				msg := com.Message
+
+				cIter.Close()
+				// parse targets from commit message
+				// assuming that the last "/" delimits our targets
+				splits := strings.Split(msg, "/")
+				if len(splits) < 1 {
 					return fmt.Errorf("no specified target could be extrcted from commit message")
 				}
-				for _, target := range strings.Split(string(msg), " ") {
+				targets := splits[len(splits)-1]
+
+				for _, target := range strings.Split(string(targets), " ") {
 					if err := p.deployPackage(target); err != nil {
 						return err
 					}
