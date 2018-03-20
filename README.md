@@ -86,3 +86,6 @@ lint:
     branch: master
     event: push
 ```
+
+### Local building
+It is required to get a hardlink to or copy of the ```drone-gcloud-helm``` binary in the working dir otherwise building will fail. 
