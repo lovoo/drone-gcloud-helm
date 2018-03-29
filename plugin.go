@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gopkg.in/src-d/go-git.v4"
 )
 
 // Plugin defines the Helm plugin parameters.
@@ -19,6 +21,7 @@ type Plugin struct {
 	ShowEnv      bool     `envconfig:"SHOW_ENV"`
 	Wait         bool     `envconfig:"WAIT"`
 	Recreate     bool     `envconfig:"RECREATE_PODS" default:"false"`
+	CompsFromGit bool     `envconfig:"COMPS_FROM_GIT" default:false` // enable if you want to parse targets from Git commit messages
 	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
@@ -84,8 +87,46 @@ func (p Plugin) Exec() error {
 				return err
 			}
 		case deployPkg:
-			if err := p.deployPackage(); err != nil {
-				return err
+			if p.CompsFromGit {
+				// Opens an already existent repository.
+				r, err := git.PlainOpen(".")
+				if err != nil {
+					return err
+				}
+
+				ref, err := r.Head()
+				if err != nil {
+					return err
+				}
+				// get commit Iterator
+				cIter, err := r.Log(&git.LogOptions{From: ref.Hash()})
+				if err != nil {
+					return err
+				}
+				com, err := cIter.Next()
+				if err != nil {
+					return err
+				}
+				msg := com.Message
+
+				cIter.Close()
+				// parse targets from commit message
+				// assuming that the last "/" delimits our targets
+				splits := strings.Split(msg, "/")
+				if len(splits) < 1 {
+					return fmt.Errorf("no specified target could be extrcted from commit message")
+				}
+				targets := splits[len(splits)-1]
+
+				for _, target := range strings.Split(string(targets), " ") {
+					if err := p.deployPackage(target); err != nil {
+						return err
+					}
+				}
+			} else {
+				if err := p.deployPackage(""); err != nil {
+					return err
+				}
 			}
 		case testPkg:
 			if err := p.testPackage(); err != nil {
@@ -166,7 +207,7 @@ func (p Plugin) lintPackage() error {
 }
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
-func (p Plugin) deployPackage() error {
+func (p Plugin) deployPackage(component string) error {
 	args := []string{
 		helmBin,
 		"upgrade",
@@ -190,6 +231,15 @@ func (p Plugin) deployPackage() error {
 	if p.Wait {
 		args = append(args, "--wait", "--timeout", strconv.Itoa(int(p.WaitTimeout)))
 	}
+	if len(component) > 0 {
+		args = append(args, "--COMP", component)
+		if p.Debug {
+			args = append(args, "--values", "charts/"+component+"/dev.yml")
+		} else {
+			args = append(args, "--values", "charts/"+component+"/prod.yml")
+		}
+	}
+
 	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
 

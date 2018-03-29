@@ -25,7 +25,7 @@ RUN	wget -q https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-
 	chmod a+x /opt/google-cloud-sdk/bin/helm && \
 	rm -rf helm-${HELM_VERSION}-linux-amd64.tar.gz linux-amd64
 
-COPY gopath/bin/drone-gcloud-helm /opt/google-cloud-sdk/bin/
+COPY drone-gcloud-helm /opt/google-cloud-sdk/bin/
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
