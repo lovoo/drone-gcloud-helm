@@ -29,4 +29,4 @@ COPY drone-gcloud-helm /opt/google-cloud-sdk/bin/
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
-# ENTRYPOINT ["/opt/google-cloud-sdk/bin/drone-gcloud-helm"]
+ENTRYPOINT ["/opt/google-cloud-sdk/bin/drone-gcloud-helm"]
