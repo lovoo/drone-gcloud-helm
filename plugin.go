@@ -195,7 +195,7 @@ func (p Plugin) deployPackage() error {
 
 // helm test $PACKAGE
 func (p Plugin) testPackage() error {
-	args := []string{helmBin, "test", p.Release, "--cleanup", "--timeout", strconv.Itoa(int(p.WaitTimeout))}
+	args := []string{helmBin, "test", p.Release, "--cleanup", "--namespace", p.Namespace, "--timeout", strconv.Itoa(int(p.WaitTimeout))}
 	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
 
