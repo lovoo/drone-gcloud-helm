@@ -169,7 +169,7 @@ func (p Plugin) lintPackage() error {
 func (p Plugin) deployPackage() error {
 	args := []string{
 		helmBin,
-		"upgrade",
+		"upgrade --install",
 		p.Release,
 		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
 	}
