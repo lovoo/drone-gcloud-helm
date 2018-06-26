@@ -11,10 +11,9 @@ RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 	tar -xvf google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
 	mv google-cloud-sdk /opt/google-cloud-sdk && \
 	/opt/google-cloud-sdk/install.sh --usage-reporting=true --path-update=true && \
-	rm -f google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz
-
-# kubectl
-RUN /opt/google-cloud-sdk/bin/gcloud components install --quiet kubectl
+	rm -f google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
+	/opt/google-cloud-sdk/bin/gcloud components install --quiet kubectl && \
+	rm -rf /opt/google-cloud-sdk/.install/.backup
 
 # helm
 RUN	wget -q https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
