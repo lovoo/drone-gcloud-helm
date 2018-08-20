@@ -1,7 +1,7 @@
 FROM alpine:3.7
 
-ARG GCLOUD_VERSION=206.0.0
-ARG HELM_VERSION=v2.9.1
+ARG GCLOUD_VERSION=212.0.0
+ARG HELM_VERSION=v2.10.0
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
 RUN mkdir /opt
@@ -11,9 +11,10 @@ RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 	tar -xvf google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
 	mv google-cloud-sdk /opt/google-cloud-sdk && \
 	/opt/google-cloud-sdk/install.sh --usage-reporting=true --path-update=true && \
-	rm -f google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
-	/opt/google-cloud-sdk/bin/gcloud components install --quiet kubectl && \
-	rm -rf /opt/google-cloud-sdk/.install/.backup
+	rm -f google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz
+
+# kubectl
+RUN gcloud install kubectl && gcloud update
 
 # helm
 RUN	wget -q https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-linux-amd64.tar.gz && \

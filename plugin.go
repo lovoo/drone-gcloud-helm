@@ -19,6 +19,7 @@ type Plugin struct {
 	ShowEnv      bool     `envconfig:"SHOW_ENV"`
 	Wait         bool     `envconfig:"WAIT"`
 	Recreate     bool     `envconfig:"RECREATE_PODS" default:"false"`
+	Region       bool     `envconfig:"REGION" default:"false"`
 	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
@@ -57,7 +58,7 @@ var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.
 func (p Plugin) Exec() error {
 	// only setup project when needed args are provided
 	if p.Project != "" && p.Cluster != "" && p.Zone != "" {
-		if err := setupProject(p.Project, p.Cluster, p.Zone, p.Debug); err != nil {
+		if err := setupProject(p.Project, p.Cluster, p.Zone, p.Debug, p.Region); err != nil {
 			return err
 		}
 		if err := helmInit(p.Debug); err != nil {
@@ -100,15 +101,21 @@ func (p Plugin) Exec() error {
 }
 
 // setupProject setups gcloud project.
-func setupProject(project, cluster, zone string, debug bool) error {
+func setupProject(project, cluster, zone string, debug, region bool) error {
 	// project configuration
 	cmd := exec.Command(gcloudBin, "config", "set", "project", project)
 	if err := run(cmd, debug); err != nil {
 		return fmt.Errorf("could not the configure the project with glcoud: %v", err)
 	}
 
+	args := []string{"container", "clusters", "get-credentials", cluster}
+	if region {
+		args = append(args, "--region")
+	}
+	args = append(args, "--zone", zone)
+
 	// cluster configuration
-	cmd = exec.Command(gcloudBin, "container", "clusters", "get-credentials", cluster, "--zone", zone)
+	cmd = exec.Command(gcloudBin, args...)
 	if err := run(cmd, debug); err != nil {
 		return fmt.Errorf("could not configure the cluster with glcoud: %v", err)
 	}
