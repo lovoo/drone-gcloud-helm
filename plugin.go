@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	version "github.com/hashicorp/go-version"
 )
 
 // Plugin defines the Helm plugin parameters.
@@ -237,15 +239,26 @@ func helmInit(debug bool) error {
 	args := []string{"init"}
 
 	ver, err := fetchHelmVersions(debug)
-	if err == nil {
-		switch strings.Compare(ver["client"]["semver"], ver["server"]["semver"]) {
-		case -1: // client is older than tiller
-			return fmt.Errorf("helm client is out of date")
-		case 1: // client is newer than tiller
-			args = append(args, "--upgrade")
-		default: // client and tiller are at the same version
-			args = append(args, "--client-only")
-		}
+	if err != nil {
+		return fmt.Errorf("could not fetch helm versions: %v", err)
+	}
+
+	clientVersion, err := version.NewVersion(ver["client"]["semver"])
+	if err != nil {
+		return fmt.Errorf("could not convert client version to semver: %v", err)
+	}
+	serverVersion, err := version.NewVersion(ver["server"]["semver"])
+	if err != nil {
+		return fmt.Errorf("could not convert server version to semver: %v", err)
+	}
+
+	switch clientVersion.Compare(serverVersion) {
+	case -1: // client is older than tiller
+		return fmt.Errorf("helm client is out of date")
+	case 1: // client is newer than tiller
+		args = append(args, "--upgrade")
+	default: // client and tiller are at the same version
+		args = append(args, "--client-only")
 	}
 
 	if err := run(exec.Command(helmBin, args...), debug); err != nil {
