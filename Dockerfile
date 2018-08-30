@@ -1,7 +1,7 @@
 FROM alpine:3.7
 
-ARG GCLOUD_VERSION=206.0.0
-ARG HELM_VERSION=v2.9.1
+ARG GCLOUD_VERSION=214.0.0
+ARG HELM_VERSION=v2.10.0
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
 RUN mkdir /opt
