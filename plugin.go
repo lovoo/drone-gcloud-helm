@@ -245,11 +245,11 @@ func helmInit(debug bool) error {
 
 	clientVersion, err := version.NewVersion(ver["client"]["semver"])
 	if err != nil {
-		return fmt.Errorf("could not converet client version to semver: %v", err)
+		return fmt.Errorf("could not convert client version to semver: %v", err)
 	}
 	serverVersion, err := version.NewVersion(ver["server"]["semver"])
 	if err != nil {
-		return fmt.Errorf("could not converet server version to semver: %v", err)
+		return fmt.Errorf("could not convert server version to semver: %v", err)
 	}
 
 	switch clientVersion.Compare(serverVersion) {
@@ -267,19 +267,6 @@ func helmInit(debug bool) error {
 
 	// poll for tiller (call helm version 10 times)
 	return pollTiller(10, debug)
-}
-
-// compareSemVer compares the two versions and returns -1, 0, or +1
-func compareSemVer(versionA, versionB string) (int, error) {
-	a, err := version.NewVersion(versionA)
-	if err != nil {
-		return 0, fmt.Errorf("could not converet version a to semver: %v", err)
-	}
-	b, err := version.NewVersion(versionB)
-	if err != nil {
-		return 0, fmt.Errorf("could not converet version b to semver: %v", err)
-	}
-	return a.Compare(b), nil
 }
 
 // pollTiller repeatedly calls helm version and checks its exit code
