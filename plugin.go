@@ -266,14 +266,13 @@ func helmInit(debug bool) error {
 		return err
 	}
 
-	// poll for tiller (call helm version 10 times)
 	return pollTiller(debug)
 }
 
 // pollTiller repeatedly calls helm version and checks its exit code
 func pollTiller(debug bool) error {
 	var err error
-	for i := 0; i < 12; i++ {
+	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Second)
 		if err = run(exec.Command(helmBin, "version"), debug); err == nil {
 			return nil
