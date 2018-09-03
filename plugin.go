@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	version "github.com/hashicorp/go-version"
 )
@@ -40,10 +41,10 @@ type Plugin struct {
 }
 
 const (
-	gcloudBin  = "/opt/google-cloud-sdk/bin/gcloud"
-	gsutilBin  = "/opt/google-cloud-sdk/bin/gsutil"
-	kubectlBin = "/opt/google-cloud-sdk/bin/kubectl"
-	helmBin    = "/opt/google-cloud-sdk/bin/helm"
+	gcloudBin  = "gcloud"
+	gsutilBin  = "gsutil"
+	kubectlBin = "kubectl"
+	helmBin    = "helm"
 
 	lintPkg   = "lint"
 	createPkg = "create"
@@ -213,7 +214,7 @@ func fetchHelmVersions(debug bool) (map[string]map[string]string, error) {
 		log.Printf("running: %s", strings.Join(cmd.Args, " "))
 	}
 	if err := cmd.Run(); err != nil {
-		return nil, errors.New(stderr.String())
+		return nil, fmt.Errorf("could not run command: %v", err)
 	}
 	if debug {
 		log.Printf("%s", out.String())
@@ -265,14 +266,14 @@ func helmInit(debug bool) error {
 		return err
 	}
 
-	// poll for tiller (call helm version 10 times)
-	return pollTiller(10, debug)
+	return pollTiller(debug)
 }
 
 // pollTiller repeatedly calls helm version and checks its exit code
-func pollTiller(retries int, debug bool) error {
+func pollTiller(debug bool) error {
 	var err error
-	for i := 0; i < retries; i++ {
+	for i := 0; i < 10; i++ {
+		time.Sleep(10 * time.Second)
 		if err = run(exec.Command(helmBin, "version"), debug); err == nil {
 			return nil
 		}
