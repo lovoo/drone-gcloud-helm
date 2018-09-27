@@ -1,6 +1,6 @@
 steps:
 - id: 'build'
-  name: 'gcr.io/lovoo-ci/cloud-builders-go:1.10'
+  name: 'gcr.io/lovoo-ci/cloud-builders-go:1.11'
   env: ['PROJECT_ROOT=drone-gcloud-helm']
   args: ['install', '.']
 
