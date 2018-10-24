@@ -11,6 +11,7 @@ The following parameters are used to configure this plugin:
 * `recreate-pods` - If true, uses helm upgrade with the `recreate-pods` flag.
 * `actions` - list of actions over chart - `lint`, `create`, `push`, `deploy`, `test`. Required and order is important (except lint).
 * `zone` - zone of the Kubernetes cluster.
+* `region` - region of an Kubernetes multi regional cluster.
 * `cluster` - the Kubernetes cluster name.
 * `project` - the Google project identifier.
 * `namespace` - the Kubernetes namespace to install in.
