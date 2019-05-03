@@ -232,7 +232,7 @@ func fetchHelmVersions(debug bool) (*helmVersions, error) {
 	if debug {
 		log.Printf("running: %s", strings.Join(cmd.Args, " "))
 	}
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if debug {
 		log.Printf("%s", out)
 	}
