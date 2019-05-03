@@ -12,13 +12,6 @@ import (
 
 func main() {
 	var p Plugin
-
-	if _, err := fetchHelmVersions(true); err != nil {
-		fmt.Println(err)
-	}
-
-	return
-
 	if err := envconfig.Process("plugin", &p); err != nil {
 		log.Fatalf("failed to parse parameters: %v", err)
 	}
