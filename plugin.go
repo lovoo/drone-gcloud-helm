@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -53,9 +53,10 @@ const (
 	pullPkg   = "pull"
 	deployPkg = "deploy"
 	testPkg   = "test"
-)
 
-var reVersions = regexp.MustCompile(`(?P<realm>Client|Server): &version.Version.SemVer:"(?P<semver>.*?)".*?GitCommit:"(?P<commit>.*?)".*?GitTreeState:"(?P<treestate>.*?)"`)
+	updateWaitTime = 10 * time.Second
+	updateRetries  = 10
+)
 
 // Exec executes the plugin step.
 func (p Plugin) Exec() error {
@@ -208,83 +209,93 @@ func (p Plugin) testPackage() error {
 	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
 
-// fetchHelmVersions returns helm and tiller versions as map
-func fetchHelmVersions(debug bool) (map[string]map[string]string, error) {
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd := exec.Command(helmBin, "version")
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
+type semVer struct {
+	Version string `json:"version"`
+}
+type helmVersions struct {
+	Client semVer `json:"client"`
+	Server semVer `json:"server"`
+}
 
+// fetchHelmVersions queries the helm and tiller versions
+func fetchHelmVersions(debug bool) (*helmVersions, error) {
+	// prepare the template for the `helm version --template` cmd line call.
+	template, err := json.Marshal(&helmVersions{
+		Client: semVer{Version: "{{ .Client.SemVer }}"},
+		Server: semVer{Version: "{{ .Server.SemVer }}"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal version template: %v", err)
+	}
+
+	cmd := exec.Command(helmBin, "version", "--template", string(template))
 	if debug {
 		log.Printf("running: %s", strings.Join(cmd.Args, " "))
 	}
-	if err := cmd.Run(); err != nil {
+	out, err := cmd.CombinedOutput()
+	if debug {
+		log.Printf("%s", out)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("could not run command: %v", err)
 	}
-	if debug {
-		log.Printf("%s", out.String())
+
+	var versions helmVersions
+	if err := json.Unmarshal(out, &versions); err != nil {
+		return nil, fmt.Errorf("could not parse client version: %v", err)
 	}
 
-	lines := strings.Split(out.String(), "\n")
-	versions := make(map[string]map[string]string)
-
-	// we just care about the first two lines
-	for _, line := range lines[:2] {
-		entry, reErr := scanNamed(line, reVersions)
-		if reErr != nil {
-			return nil, reErr
-		}
-		versions[strings.ToLower(entry["realm"])] = entry
-	}
-
-	return versions, nil
+	return &versions, nil
 }
 
 // helmInit inits Triller on Kubernetes cluster.
 func helmInit(debug bool) error {
-	args := []string{"init"}
-
 	ver, err := fetchHelmVersions(debug)
 	if err != nil {
 		return fmt.Errorf("could not fetch helm versions: %v", err)
 	}
 
-	clientVersion, err := version.NewVersion(ver["client"]["semver"])
+	clientVersion, err := version.NewVersion(ver.Client.Version)
 	if err != nil {
 		return fmt.Errorf("could not convert client version to semver: %v", err)
 	}
-	serverVersion, err := version.NewVersion(ver["server"]["semver"])
+	serverVersion, err := version.NewVersion(ver.Server.Version)
 	if err != nil {
 		return fmt.Errorf("could not convert server version to semver: %v", err)
 	}
 
+	var option string
+	var wait bool
 	switch clientVersion.Compare(serverVersion) {
 	case -1: // client is older than tiller
 		return fmt.Errorf("helm client is out of date")
 	case 1: // client is newer than tiller
-		args = append(args, "--upgrade")
+		option = "--upgrade"
+		wait = true
 	default: // client and tiller are at the same version
-		args = append(args, "--client-only")
+		option = "--client-only"
 	}
 
-	if err := run(exec.Command(helmBin, args...), debug); err != nil {
-		return err
+	cmd := exec.Command(helmBin, "init", option)
+	if err := run(cmd, debug); err != nil {
+		return fmt.Errorf("could not run command '%s': %v", strings.Join(cmd.Args, " "), err)
 	}
 
-	return pollTiller(debug)
-}
-
-// pollTiller repeatedly calls helm version and checks its exit code
-func pollTiller(debug bool) error {
-	var err error
-	for i := 0; i < 10; i++ {
-		time.Sleep(10 * time.Second)
-		if err = run(exec.Command(helmBin, "version"), debug); err == nil {
-			return nil
+	if wait {
+		var err error
+		for i := 0; i < updateRetries; i++ {
+			time.Sleep(updateWaitTime)
+			err = run(exec.Command(helmBin, "version", "--server"), debug)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("could not wait for tiller: max retries exceeded: %v", err)
 		}
 	}
-	return err
+
+	return nil
 }
 
 func (p Plugin) movePkg() error {

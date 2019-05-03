@@ -1,10 +1,18 @@
-FROM alpine:3.7
+FROM golang:1 as builder
 
-ARG GCLOUD_VERSION=218.0.0
-ARG HELM_VERSION=v2.12.1
+WORKDIR /go/src/helm-builder
+COPY . .
+
+RUN go build -o /helm-builder
+
+
+FROM alpine:3.9
+
+ARG GCLOUD_VERSION=237.0.0
+ARG HELM_VERSION=v2.13.0
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
-RUN mkdir /opt
+RUN mkdir -p /opt
 
 # gcloud
 RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
@@ -22,8 +30,8 @@ RUN	wget -q https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-
 	chmod a+x /opt/google-cloud-sdk/bin/helm && \
 	rm -rf helm-${HELM_VERSION}-linux-amd64.tar.gz linux-amd64
 
-COPY gopath/bin/drone-gcloud-helm /opt/google-cloud-sdk/bin/
+COPY --from=builder /helm-builder /opt/google-cloud-sdk/bin/
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
-ENTRYPOINT ["/opt/google-cloud-sdk/bin/drone-gcloud-helm"]
+ENTRYPOINT ["/opt/google-cloud-sdk/bin/helm-builder"]
