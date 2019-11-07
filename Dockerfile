@@ -8,7 +8,7 @@ RUN go build -o /helm-builder
 
 FROM alpine:3
 
-ARG GCLOUD_VERSION=268.0.0
+ARG GCLOUD_VERSION=270.0.0
 ARG HELM_VERSION=v2.15.2
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
