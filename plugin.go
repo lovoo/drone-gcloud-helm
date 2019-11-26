@@ -65,9 +65,6 @@ func (p Plugin) Exec() error {
 		if err := setupProject(p.Project, p.Cluster, p.Zone, p.Region, p.Debug); err != nil {
 			return err
 		}
-		if err := helmInit(p.Debug); err != nil {
-			return err
-		}
 	}
 
 	for _, a := range p.Actions {
@@ -215,87 +212,6 @@ type semVer struct {
 type helmVersions struct {
 	Client semVer `json:"client"`
 	Server semVer `json:"server"`
-}
-
-// fetchHelmVersions queries the helm and tiller versions
-func fetchHelmVersions(debug bool) (*helmVersions, error) {
-	// prepare the template for the `helm version --template` cmd line call.
-	template, err := json.Marshal(&helmVersions{
-		Client: semVer{Version: "{{ .Client.SemVer }}"},
-		Server: semVer{Version: "{{ .Server.SemVer }}"},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal version template: %v", err)
-	}
-
-	cmd := exec.Command(helmBin, "version", "--template", string(template))
-	if debug {
-		log.Printf("running: %s", strings.Join(cmd.Args, " "))
-	}
-	out, err := cmd.Output()
-	if debug {
-		log.Printf("%s", out)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("could not run command: %v", err)
-	}
-
-	var versions helmVersions
-	if err := json.Unmarshal(out, &versions); err != nil {
-		return nil, fmt.Errorf("could not parse client version: %v", err)
-	}
-
-	return &versions, nil
-}
-
-// helmInit inits Triller on Kubernetes cluster.
-func helmInit(debug bool) error {
-	ver, err := fetchHelmVersions(debug)
-	if err != nil {
-		return fmt.Errorf("could not fetch helm versions: %v", err)
-	}
-
-	clientVersion, err := version.NewVersion(ver.Client.Version)
-	if err != nil {
-		return fmt.Errorf("could not convert client version to semver: %v", err)
-	}
-	serverVersion, err := version.NewVersion(ver.Server.Version)
-	if err != nil {
-		return fmt.Errorf("could not convert server version to semver: %v", err)
-	}
-
-	var option string
-	var wait bool
-	switch clientVersion.Compare(serverVersion) {
-	case -1: // client is older than tiller
-		return fmt.Errorf("helm client is out of date")
-	case 1: // client is newer than tiller
-		option = "--upgrade"
-		wait = true
-	default: // client and tiller are at the same version
-		option = "--client-only"
-	}
-
-	cmd := exec.Command(helmBin, "init", option)
-	if err := run(cmd, debug); err != nil {
-		return fmt.Errorf("could not run command '%s': %v", strings.Join(cmd.Args, " "), err)
-	}
-
-	if wait {
-		var err error
-		for i := 0; i < updateRetries; i++ {
-			time.Sleep(updateWaitTime)
-			err = run(exec.Command(helmBin, "version", "--server"), debug)
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			return fmt.Errorf("could not wait for tiller: max retries exceeded: %v", err)
-		}
-	}
-
-	return nil
 }
 
 func (p Plugin) movePkg() error {
