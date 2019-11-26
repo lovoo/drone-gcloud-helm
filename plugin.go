@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	version "github.com/hashicorp/go-version"
 )
 
 // Plugin defines the Helm plugin parameters.
