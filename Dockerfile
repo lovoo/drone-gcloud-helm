@@ -9,7 +9,7 @@ RUN go build -o /helm-builder
 FROM alpine:3
 
 ARG GCLOUD_VERSION=272.0.0
-ARG HELM_VERSION=v3
+ARG HELM_VERSION=v3.0.0
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
 RUN mkdir -p /opt
@@ -24,7 +24,7 @@ RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 	mv /opt/google-cloud-sdk/bin/kubectl.1.14 /opt/google-cloud-sdk/bin/kubectl && \
 	rm /opt/google-cloud-sdk/bin/kubectl.*
 
-RUN wget -q https://storage.googleapis.com/kubernetes-helm/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
+RUN wget -q https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	tar -xvf helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	cp linux-amd64/helm /opt/google-cloud-sdk/bin/ && \
 	chmod a+x /opt/google-cloud-sdk/bin/helm && \
