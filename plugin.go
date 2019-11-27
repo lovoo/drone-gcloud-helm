@@ -192,7 +192,7 @@ func (p Plugin) deployPackage() error {
 	args = append(args, "--namespace", p.Namespace)
 
 	if p.Wait {
-		args = append(args, "--wait", "--timeout", strconv.Itoa(int(p.WaitTimeout)))
+		args = append(args, "--wait", "--timeout", fmt.Sprintf("%ds", p.WaitTimeout))
 	}
 	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
