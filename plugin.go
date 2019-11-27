@@ -19,7 +19,7 @@ type Plugin struct {
 	ShowEnv      bool     `envconfig:"SHOW_ENV"`
 	Wait         bool     `envconfig:"WAIT"`
 	Recreate     bool     `envconfig:"RECREATE_PODS" default:"false"`
-	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300s"`
+	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
 	Actions      []string `envconfig:"ACTIONS" required:"true"`
 	AuthKey      string   `envconfig:"AUTH_KEY"`
 	KeyPath      string   `envconfig:"KEY_PATH"`
