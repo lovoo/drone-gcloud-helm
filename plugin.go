@@ -198,7 +198,7 @@ func (p Plugin) deployPackage() error {
 
 // helm test $PACKAGE
 func (p Plugin) testPackage() error {
-	args := []string{helmBin, "test", p.Release, "--timeout", fmt.Sprintf("%d", p.WaitTimeout)}
+	args := []string{helmBin, "test", p.Release, "--timeout", fmt.Sprintf("%ds", p.WaitTimeout)}
 	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
 
