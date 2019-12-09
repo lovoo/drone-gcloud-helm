@@ -170,6 +170,7 @@ func (p Plugin) lintPackage() error {
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
+
 	args := []string{
 		helmBin,
 		"upgrade",
@@ -269,4 +270,18 @@ func run(cmd *exec.Cmd, debug bool) error {
 		cmd.Stderr = os.Stderr
 	}
 	return cmd.Run()
+}
+
+func createNamespace(name string, debug bool) error {
+	checkNS := exec.Command(kubectlBin, "get", "namespace", "--ignore-not-found", name)
+	response, err := checkNS.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("could not check if namespace exists: %w", err)
+	}
+
+	if len(response) == 0 {
+		return run(exec.Command(kubectlBin, "create", "namespace", name), debug)
+	}
+
+	return nil
 }
