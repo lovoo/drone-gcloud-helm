@@ -170,6 +170,11 @@ func (p Plugin) lintPackage() error {
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
+	// We need to create the namespace because Helm 3 does not create the namespace for us anymore.
+	if err := createNamespace(p.Namespace, p.Debug); err != nil {
+		return fmt.Errorf("could not create namespace: %w", err)
+	}
+
 	args := []string{
 		helmBin,
 		"upgrade",
