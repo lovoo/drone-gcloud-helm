@@ -170,7 +170,6 @@ func (p Plugin) lintPackage() error {
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
 func (p Plugin) deployPackage() error {
-
 	args := []string{
 		helmBin,
 		"upgrade",
