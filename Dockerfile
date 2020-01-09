@@ -5,16 +5,15 @@ COPY . .
 
 RUN CGO_ENABLED=0 go build -mod vendor -o helm-builder
 
+
 FROM alpine:3
 
 ARG GCLOUD_VERSION=272.0.0
 ARG HELM_VERSION=v3.0.0
-ARG SOPS_VERSION=v3.5.0
 
 RUN apk --update --no-cache add python tar openssl wget ca-certificates
 RUN mkdir -p /opt
 
-# gcloud
 RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
 	tar -xvf google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
 	mv google-cloud-sdk /opt/google-cloud-sdk && \
@@ -25,7 +24,6 @@ RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cl
 	mv /opt/google-cloud-sdk/bin/kubectl.1.14 /opt/google-cloud-sdk/bin/kubectl && \
 	rm /opt/google-cloud-sdk/bin/kubectl.*
 
-# helm
 RUN wget -q https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	tar -xvf helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	cp linux-amd64/helm /opt/google-cloud-sdk/bin/ && \
