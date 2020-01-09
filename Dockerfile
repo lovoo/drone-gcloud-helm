@@ -32,9 +32,9 @@ RUN wget -q https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	chmod a+x /opt/google-cloud-sdk/bin/helm && \
 	rm -rf helm-${HELM_VERSION}-linux-amd64.tar.gz linux-amd64
 
-ENV PATH=$PATH:/opt/google-cloud-sdk/bin
-
 # helm builder
 COPY --from=builder /helm-builder/helm-builder /opt/google-cloud-sdk/bin/helm-builder
+
+ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
 ENTRYPOINT ["/opt/google-cloud-sdk/bin/helm-builder"]
