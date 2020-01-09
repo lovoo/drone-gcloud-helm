@@ -177,6 +177,7 @@ func (p Plugin) deployPackage() error {
 
 	args := []string{
 		helmBin,
+		"secrets",
 		"upgrade",
 		p.Release,
 		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
