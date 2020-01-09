@@ -47,12 +47,13 @@ const (
 	kubectlBin = "kubectl"
 	helmBin    = "helm"
 
-	lintPkg   = "lint"
-	createPkg = "create"
-	pushPkg   = "push"
-	pullPkg   = "pull"
-	deployPkg = "deploy"
-	testPkg   = "test"
+	lintPkg       = "lint"
+	createPkg     = "create"
+	pushPkg       = "push"
+	pullPkg       = "pull"
+	deployPkg     = "deploy"
+	testPkg       = "test"
+	dependencyPkg = "dep"
 
 	updateWaitTime = 10 * time.Second
 	updateRetries  = 10
@@ -91,6 +92,10 @@ func (p Plugin) Exec() error {
 			}
 		case testPkg:
 			if err := p.testPackage(); err != nil {
+				return err
+			}
+		case dependencyPkg:
+			if err := p.dependencyUpdate(); err != nil {
 				return err
 			}
 		default:
@@ -170,6 +175,10 @@ func (p Plugin) pushPackage() error {
 // helm lint $CHARTPATH -i
 func (p Plugin) lintPackage() error {
 	return run(exec.Command(helmBin, "lint", p.ChartPath), p.Debug)
+}
+
+func (p Plugin) dependencyUpdate() error {
+	return run(exec.Command(helmBin, "dependency", "update", p.ChartPath), p.Debug)
 }
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
