@@ -1,9 +1,9 @@
 FROM golang:1 as builder
 
-WORKDIR /go/src/helm-builder
+WORKDIR /helm-builder
 COPY . .
 
-RUN go build -o /helm-builder
+RUN CGO_ENABLED=0 go build -mod vendor -o helm-builder
 
 FROM alpine:3
 
@@ -11,7 +11,7 @@ ARG GCLOUD_VERSION=272.0.0
 ARG HELM_VERSION=v3.0.0
 ARG SOPS_VERSION=v3.5.0
 
-RUN apk --update --no-cache add python tar openssl wget ca-certificates git bash curl
+RUN apk --update --no-cache add python tar openssl wget ca-certificates
 RUN mkdir -p /opt
 
 # gcloud
@@ -34,12 +34,7 @@ RUN wget -q https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
-# sops
-ADD https://github.com/mozilla/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux /opt/sops
-RUN chmod u+x /opt/sops
-RUN helm plugin install https://github.com/futuresimple/helm-secrets
-
 # helm builder
-COPY --from=builder /helm-builder /opt/google-cloud-sdk/bin/
+COPY --from=builder /helm-builder/helm-builder /opt/google-cloud-sdk/bin/helm-builder
 
 ENTRYPOINT ["/opt/google-cloud-sdk/bin/helm-builder"]
