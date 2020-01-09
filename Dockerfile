@@ -1,9 +1,9 @@
 FROM golang:1 as builder
 
-WORKDIR /go/src/helm-builder
+WORKDIR /helm-builder
 COPY . .
 
-RUN go build -o /helm-builder
+RUN CGO_ENABLED=0 go build -mod vendor -o helm-builder
 
 
 FROM alpine:3
@@ -30,7 +30,8 @@ RUN wget -q https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz && \
 	chmod a+x /opt/google-cloud-sdk/bin/helm && \
 	rm -rf helm-${HELM_VERSION}-linux-amd64.tar.gz linux-amd64
 
-COPY --from=builder /helm-builder /opt/google-cloud-sdk/bin/
+# helm builder
+COPY --from=builder /helm-builder/helm-builder /opt/google-cloud-sdk/bin/helm-builder
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
