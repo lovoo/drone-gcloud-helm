@@ -35,4 +35,6 @@ COPY --from=builder /helm-builder/helm-builder /opt/google-cloud-sdk/bin/helm-bu
 
 ENV PATH=$PATH:/opt/google-cloud-sdk/bin
 
+RUN helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+
 ENTRYPOINT ["/opt/google-cloud-sdk/bin/helm-builder"]
