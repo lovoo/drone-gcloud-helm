@@ -186,7 +186,7 @@ func (p Plugin) dependencyUpdate() error {
 }
 
 func (p Plugin) addRepo() error {
-	if err := run(exec.Command(helmBin, "repo", "add", p.HelmStableRepo), p.Debug); err != nil {
+	if err := run(exec.Command(helmBin, "repo", "add", "stable", p.HelmStableRepo), p.Debug); err != nil {
 		return fmt.Errorf("could not add stable repo '%s': %w", p.HelmStableRepo, err)
 	}
 	if err := run(exec.Command(helmBin, "repo", "update"), p.Debug); err != nil {
