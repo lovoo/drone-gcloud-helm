@@ -17,28 +17,29 @@ import (
 
 // Plugin defines the Helm plugin parameters.
 type Plugin struct {
-	Debug        bool     `envconfig:"DEBUG"`
-	ShowEnv      bool     `envconfig:"SHOW_ENV"`
-	Wait         bool     `envconfig:"WAIT"`
-	Recreate     bool     `envconfig:"RECREATE_PODS" default:"false"`
-	WaitTimeout  uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
-	Actions      []string `envconfig:"ACTIONS" required:"true"`
-	AuthKey      string   `envconfig:"AUTH_KEY"`
-	KeyPath      string   `envconfig:"KEY_PATH"`
-	Zone         string   `envconfig:"ZONE"`
-	Region       string   `envconfig:"REGION"`
-	Cluster      string   `envconfig:"CLUSTER"`
-	Project      string   `envconfig:"PROJECT"`
-	Namespace    string   `envconfig:"NAMESPACE"`
-	ChartRepo    string   `envconfig:"CHART_REPO"`
-	Bucket       string   `envconfig:"BUCKET"`
-	ChartPath    string   `envconfig:"CHART_PATH" required:"true"`
-	ChartVersion string   `envconfig:"CHART_VERSION"`
-	Release      string   `envconfig:"RELEASE"`
-	Package      string   `envconfig:"PACKAGE"`
-	Values       []string `envconfig:"VALUES"`
-	ValueFiles   []string `envconfig:"VALUE_FILES"`
-	Secrets      []string `envconfig:"SECRETS"`
+	Debug          bool     `envconfig:"DEBUG"`
+	ShowEnv        bool     `envconfig:"SHOW_ENV"`
+	Wait           bool     `envconfig:"WAIT"`
+	Recreate       bool     `envconfig:"RECREATE_PODS" default:"false"`
+	WaitTimeout    uint32   `envconfig:"WAIT_TIMEOUT" default:"300"`
+	Actions        []string `envconfig:"ACTIONS" required:"true"`
+	AuthKey        string   `envconfig:"AUTH_KEY"`
+	KeyPath        string   `envconfig:"KEY_PATH"`
+	Zone           string   `envconfig:"ZONE"`
+	Region         string   `envconfig:"REGION"`
+	Cluster        string   `envconfig:"CLUSTER"`
+	Project        string   `envconfig:"PROJECT"`
+	Namespace      string   `envconfig:"NAMESPACE"`
+	ChartRepo      string   `envconfig:"CHART_REPO"`
+	Bucket         string   `envconfig:"BUCKET"`
+	ChartPath      string   `envconfig:"CHART_PATH" required:"true"`
+	ChartVersion   string   `envconfig:"CHART_VERSION"`
+	Release        string   `envconfig:"RELEASE"`
+	Package        string   `envconfig:"PACKAGE"`
+	Values         []string `envconfig:"VALUES"`
+	ValueFiles     []string `envconfig:"VALUE_FILES"`
+	Secrets        []string `envconfig:"SECRETS"`
+	HelmStableRepo string   `envconfig:"HELM_STABLE_REPO" default:"https://kubernetes-charts.storage.googleapis.com"`
 }
 
 const (
@@ -95,6 +96,9 @@ func (p Plugin) Exec() error {
 				return err
 			}
 		case dependencyPkg:
+			if err := p.addRepo(); err != nil {
+				return err
+			}
 			if err := p.dependencyUpdate(); err != nil {
 				return err
 			}
@@ -179,6 +183,16 @@ func (p Plugin) lintPackage() error {
 
 func (p Plugin) dependencyUpdate() error {
 	return run(exec.Command(helmBin, "dependency", "update", p.ChartPath), p.Debug)
+}
+
+func (p Plugin) addRepo() error {
+	if err := run(exec.Command(helmBin, "repo", "add", p.HelmStableRepo), p.Debug); err != nil {
+		return fmt.Errorf("could not add stable repo '%s': %w", p.HelmStableRepo, err)
+	}
+	if err := run(exec.Command(helmBin, "repo", "update"), p.Debug); err != nil {
+		return fmt.Errorf("could not update repos: %w", err)
+	}
+	return nil
 }
 
 // helm upgrade $PACKAGE $PACKAGE-$PLUGIN_CHART_VERSION.tgz -i
