@@ -178,7 +178,57 @@ func (p Plugin) pushPackage() error {
 
 // helm lint $CHARTPATH -i
 func (p Plugin) lintPackage() error {
-	return run(exec.Command(helmBin, "lint", p.ChartPath), p.Debug)
+
+	args := []string{
+		helmBin,
+		"lint ",
+	}
+
+	if len(p.ValueFiles) > 0 {
+		for _, f := range p.ValueFiles {
+			args = append(args, "-f", f)
+		}
+	}
+
+	if len(p.Values) > 0 {
+		args = append(args, "--set", strings.Join(p.Values, ","))
+	}
+
+	var tempFiles []string
+	defer func() {
+		for _, f := range tempFiles {
+			if err := os.Remove(f); err != nil {
+				fmt.Printf("could not remove temp file: %v", err)
+			}
+		}
+	}()
+
+	for _, f := range p.Secrets {
+		cleartext, err := sops_decrypt.File(f, "yaml")
+		if err != nil {
+			return fmt.Errorf("could not decrypt secret file: %w", err)
+		}
+		tmp, err := ioutil.TempFile(".", "decrypted")
+		if err != nil {
+			return fmt.Errorf("could not create temp file for the decrypted secrets: %w", err)
+		}
+		defer tmp.Close()
+		tempFiles = append(tempFiles, tmp.Name())
+
+		if _, err := tmp.Write(cleartext); err != nil {
+			return fmt.Errorf("could not write temp file with decrypted secrets: %w", err)
+		}
+		if err := tmp.Sync(); err != nil {
+			return fmt.Errorf("could not sync temp file with decrypted secrets: %w", err)
+		}
+		args = append(args, "-f", tmp.Name())
+	}
+
+	args = append(args, p.ChartPath)
+
+
+
+	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
 
 func (p Plugin) dependencyUpdate() error {
