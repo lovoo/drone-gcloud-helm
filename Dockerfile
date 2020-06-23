@@ -6,12 +6,12 @@ COPY . .
 RUN CGO_ENABLED=0 go build -mod vendor -o helm-builder
 
 
-FROM alpine:3
+FROM alpine:3.12
 
 ARG GCLOUD_VERSION=297.0.1
 ARG HELM_VERSION=v3.2.4
 
-RUN apk --update --no-cache add python tar openssl wget ca-certificates
+RUN apk --update --no-cache add python3 tar openssl wget ca-certificates
 RUN mkdir -p /opt
 
 RUN	wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-${GCLOUD_VERSION}-linux-x86_64.tar.gz && \
