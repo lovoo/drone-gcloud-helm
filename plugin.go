@@ -178,11 +178,32 @@ func (p Plugin) pushPackage() error {
 
 // helm lint $CHARTPATH -i
 func (p Plugin) lintPackage() error {
-	return run(exec.Command(helmBin, "lint", p.ChartPath), p.Debug)
+	args := []string{
+		helmBin,
+		"lint",
+		p.ChartPath,
+	}
+
+	args = append(args, p.createValueFileArgs()...)
+
+	return run(exec.Command("/bin/sh", "-c", strings.Join(args, " ")), p.Debug)
 }
 
 func (p Plugin) dependencyUpdate() error {
 	return run(exec.Command(helmBin, "dependency", "update", p.ChartPath), p.Debug)
+}
+
+func (p Plugin) createValueFileArgs() []string {
+	var args []string
+	if len(p.ValueFiles) > 0 {
+		for _, f := range p.ValueFiles {
+			args = append(args, "-f", f)
+		}
+	}
+	if len(p.Values) > 0 {
+		args = append(args, "--set", strings.Join(p.Values, ","))
+	}
+	return args
 }
 
 func (p Plugin) addRepo() error {
@@ -208,14 +229,8 @@ func (p Plugin) deployPackage() error {
 		p.Release,
 		fmt.Sprintf("%s-%s.tgz", p.Package, p.ChartVersion),
 	}
-	if len(p.ValueFiles) > 0 {
-		for _, f := range p.ValueFiles {
-			args = append(args, "-f", f)
-		}
-	}
-	if len(p.Values) > 0 {
-		args = append(args, "--set", strings.Join(p.Values, ","))
-	}
+
+	args = append(args, p.createValueFileArgs()...)
 
 	var tempFiles []string
 	defer func() {
