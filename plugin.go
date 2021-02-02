@@ -39,7 +39,7 @@ type Plugin struct {
 	Values         []string `envconfig:"VALUES"`
 	ValueFiles     []string `envconfig:"VALUE_FILES"`
 	Secrets        []string `envconfig:"SECRETS"`
-	HelmStableRepo string   `envconfig:"HELM_STABLE_REPO" default:"https://kubernetes-charts.storage.googleapis.com"`
+	HelmStableRepo string   `envconfig:"HELM_STABLE_REPO" default:"https://charts.helm.sh/stable"`
 }
 
 const (
