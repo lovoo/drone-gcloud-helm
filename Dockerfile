@@ -8,8 +8,8 @@ RUN CGO_ENABLED=0 go build -mod vendor -o helm-builder
 
 FROM alpine:3
 
-ARG GCLOUD_VERSION=331.0.0
-ARG HELM_VERSION=v3.5.3
+ARG GCLOUD_VERSION=336.0.0
+ARG HELM_VERSION=v3.5.4
 
 RUN apk --update --no-cache add python3 tar openssl wget ca-certificates
 RUN mkdir -p /opt
